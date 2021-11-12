@@ -1,0 +1,384 @@
+---
+title: "Goya Horarios"
+author: "Danyu"
+date: "3/11/2021"
+output: word_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(stringr)
+```
+
+
+```{r}
+df_monthly <- list.files(path="C:/Users/Beatriz Garcia/Desktop/DANYU/ECI/ECI_OCT/data_modified", full.names = TRUE) %>% 
+  lapply(read.csv2) %>% 
+  bind_rows 
+
+df_monthly$Precio = as.numeric(df_monthly$Precio)
+df_monthly$hora <- str_sub(df_monthly$horaOperacion, -5,-4)
+df_monthly$hora <- as.numeric(df_monthly$hora) 
+
+df_goya <- df_monthly[df_monthly$Punto.de.Venta.Centro == df_monthly$Punto.de.Venta.Centro[5],]
+df_goya$dia <- as.character(str_sub(df_goya$Fecha, 9,10))
+
+weekday <- rep(seq(1,7,1),6)[5:35]
+dia <- seq(01,31,1)
+dia <- as.character(dia)
+dia <- ifelse(nchar(dia)!=2,paste0("0",dia),dia)
+dfaux <- data.frame(weekday, dia)
+
+df_goya <- left_join(df_goya, dfaux, by = "dia")
+```
+
+```{r}
+df_goya %>% group_by(Operacion, weekday, dia) %>% summarise(precioTicket = sum(Precio)) %>% 
+  group_by(weekday) %>% summarise(count=n())
+```
+
+```{r}
+m1 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==1) %>% 
+  filter(hora>=0) 
+
+m11 <- m1 %>% group_by(hora) %>% summarise(count= n())
+m11$porcentaje <- m11$count/sum(m11$count)
+
+m11 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "pink") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1) +
+  ggtitle("Horas Puntas goya en ls Lunes")
+
+
+#table(m1$hora)
+#m1 %>% ggplot() +
+#  geom_histogram(aes(as.factor(hora)), stat = "count", fill = "pink") +
+#  ggtitle("Horas Puntas goya en ls Lunes")
+```
+
+
+```{r}
+m2 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==2) %>% 
+  filter(hora>=0) 
+
+m21 <- m2 %>% group_by(hora) %>% summarise(count= n())
+m21$porcentaje <- m21$count/sum(m21$count)
+
+m21 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "plum2") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1)+
+  ggtitle("Horas Puntas goya en ls Martes") 
+
+
+#df_goya %>% group_by(Operacion, a, dia, hora) %>% 
+#  summarise(precioTicket = sum(Precio)) %>% 
+#  filter(a==2) %>% 
+#  filter(hora>=0) %>% 
+#  ggplot() +
+#  geom_histogram(aes(as.factor(hora)), stat = "count", fill = "pink") +
+#  ggtitle("Horas Puntas goya en ls Martes") 
+```
+
+```{r}
+m3 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==3) %>% 
+  filter(hora>=0) 
+
+m31 <- m3 %>% group_by(hora) %>% summarise(count= n())
+m31$porcentaje <- m31$count/sum(m31$count)
+
+m31 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue1") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1) +
+  ggtitle("Horas Puntas goya en ls Miercoles")
+```
+
+
+```{r}
+m4 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==4) %>% 
+  filter(hora>=0) 
+
+m41 <- m4 %>% group_by(hora) %>% summarise(count= n())
+m41$porcentaje <- m41$count/sum(m41$count)
+
+m41 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "seagreen3") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1) +
+  ggtitle("Horas Puntas goya en ls Jueves")
+```
+
+```{r}
+m5 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==5) %>% 
+  filter(hora>=0) 
+
+m51 <- m5 %>% group_by(hora) %>% summarise(count= n())
+m51$porcentaje <- m51$count/sum(m51$count)
+
+m51 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "lightsalmon1") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1) +
+  ggtitle("Horas Puntas goya en ls Viernes")
+```
+
+```{r}
+m6 <- df_goya %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==6) %>% 
+  filter(hora>=0) 
+
+m61 <- m6 %>% group_by(hora) %>% summarise(count= n())
+m61$porcentaje <- m61$count/sum(m61$count)
+
+m61 %>% ggplot(aes(as.factor(hora), y = count)) +
+  geom_bar(stat = "identity", fill = "lightsteelblue2") + 
+  labs(x = "Hora", y = "Count") +
+  theme(text = element_text(size=10)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1) +
+  ggtitle("Horas Puntas goya en ls Sabado")
+```
+
+```{r}
+df1 <- as.data.frame(table(m1$hora))
+names(df1) <- c("Hora", "nº tickets lunes")
+df2 <- as.data.frame(table(m2$hora))
+names(df2) <- c("Hora", "nº tickets martes")
+df3 <- as.data.frame(table(m3$hora))
+names(df3) <- c("Hora", "nº tickets miercoles")
+df4 <- as.data.frame(table(m4$hora))
+names(df4) <- c("Hora", "nº tickets jueves")
+df5 <- as.data.frame(table(m5$hora))
+names(df5) <- c("Hora", "nº tickets viernes")
+df6 <- as.data.frame(table(m6$hora))
+names(df6) <- c("Hora", "nº tickets sabado")
+
+
+df<- df1 %>% merge(df2,by = "Hora",  all=TRUE) %>% 
+  merge(df3,by = "Hora", all=TRUE) %>% 
+  merge(df4,by = "Hora", all=TRUE) %>% 
+  merge(df5,by = "Hora", all=TRUE) %>% 
+  merge(df6,by = "Hora", all=TRUE)
+
+View(df)
+```
+
+
+
+SEP
+```{r}
+df_monthly2 <- list.files(path="C:/Users/Beatriz Garcia/Desktop/DANYU/ECI_SEP/data_modified", full.names = TRUE) %>% 
+  lapply(read.csv2) %>% 
+  bind_rows 
+
+df_monthly2$Precio = as.numeric(df_monthly2$Precio)
+
+df_monthly2$hora <- str_sub(df_monthly2$horaOperacion, -5,-4)
+df_monthly2$hora <- as.numeric(df_monthly2$hora) 
+
+df_goya9 <- df_monthly2[df_monthly2$Punto.de.Venta.Centro == df_monthly2$Punto.de.Venta.Centro[1],]
+df_goya9$dia <- as.character(str_sub(df_goya9$Fecha, 9,10))
+
+weekday <- rep(seq(1,7,1),5)[3:32]
+dia <- seq(01,30,1)
+dia <- as.character(dia)
+dia <- ifelse(nchar(dia)!=2,paste0("0",dia),dia)
+dfaux <- data.frame(weekday, dia)
+
+
+df_goya9 <- left_join(df_goya9, dfaux, by = "dia")
+```
+
+```{r}
+df_goya9 %>% group_by(Operacion, weekday, dia) %>% summarise(precioTicket = sum(Precio)) %>% 
+  group_by(weekday) %>% summarise(count=n())
+```
+
+```{r}
+m91 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==1) %>% 
+  filter(hora>=0) 
+
+m92 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==2) %>% 
+  filter(hora>=0) 
+
+m93 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==3) %>% 
+  filter(hora>=0) 
+
+m94 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==4) %>% 
+  filter(hora>=0) 
+
+m95 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==5) %>% 
+  filter(hora>=0) 
+
+m96 <- df_goya9 %>% group_by(Operacion, weekday, dia, hora) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==6) %>% 
+  filter(hora>=0) 
+```
+
+
+```{r}
+df11 <- as.data.frame(table(m91$hora))
+names(df11) <- c("Hora", "nº tickets lunes")
+df22 <- as.data.frame(table(m92$hora))
+names(df22) <- c("Hora", "nº tickets martes")
+df33 <- as.data.frame(table(m93$hora))
+names(df33) <- c("Hora", "nº tickets miercoles")
+df44 <- as.data.frame(table(m94$hora))
+names(df44) <- c("Hora", "nº tickets jueves")
+df55 <- as.data.frame(table(m95$hora))
+names(df55) <- c("Hora", "nº tickets viernes")
+df66 <- as.data.frame(table(m96$hora))
+names(df66) <- c("Hora", "nº tickets sabado")
+
+
+df9<- df11 %>% merge(df22,by = "Hora", all=TRUE) %>% 
+  merge(df33,by = "Hora", all=TRUE) %>% 
+  merge(df44,by = "Hora", all=TRUE) %>% 
+  merge(df55,by = "Hora", all=TRUE) %>% 
+  merge(df66,by = "Hora", all=TRUE)
+
+```
+
+
+```{r}
+goya <- rbind(df_goya, df_goya9)
+goya$mes <- str_sub(goya$Fecha, 6,7)
+```
+
+
+```{r}
+goya1 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+ summarise(precioTicket = sum(Precio)) %>% 
+ filter(weekday==1) %>% 
+ filter(hora>=0)
+
+goya1 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  ggtitle("Horas Puntas goya en el Lunes")+ 
+  labs(x = "Hora", y = "Count") +
+  facet_wrap(~mes)
+```
+
+
+```{r}
+goya2 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==2) %>% 
+  filter(hora>=0) 
+
+
+goya2 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  facet_grid(~mes)+
+  labs(x = "Hora", y = "Count") +
+  ggtitle("Horas Puntas goya en el Martes")
+```
+
+```{r}
+goya3 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==3) %>% 
+  filter(hora>=0) 
+
+
+goya3 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  facet_grid(~mes) +
+  labs(x = "Hora", y = "Count") +
+  ggtitle("Horas Puntas goya en el Miercoles")
+```
+
+
+
+```{r}
+goya4 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==4) %>% 
+  filter(hora>=0) 
+
+
+goya4 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  facet_grid(~mes) +
+  labs(x = "Hora", y = "Count") +
+  ggtitle("Horas Puntas goya en el Jueves")
+```
+
+
+```{r}
+goya5 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==5) %>% 
+  filter(hora>=0) 
+
+
+goya5 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  facet_grid(~mes) +
+  labs(x = "Hora", y = "Count") +
+  ggtitle("Horas Puntas goya en el Viernes")
+```
+
+
+
+```{r}
+goya6 <- goya %>% group_by(Operacion, weekday, dia, hora, mes) %>% 
+  summarise(precioTicket = sum(Precio)) %>% 
+  filter(weekday==6) %>% 
+  filter(hora>=0) 
+
+
+goya6 %>% ggplot() +
+  geom_histogram(aes(as.factor(hora), fill = as.factor(mes)), stat = "count") +
+  labs(x = "Hora", y = "Count") +
+  facet_grid(~mes) +
+  ggtitle("Horas Puntas goya en el Sabado")
+```

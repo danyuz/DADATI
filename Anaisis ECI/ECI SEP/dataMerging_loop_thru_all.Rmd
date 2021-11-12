@@ -1,0 +1,45 @@
+---
+title: "Loop thru file reading"
+author: "Danyu"
+date: "13/10/2021"
+output: html_document
+---
+
+**Libraries used**
+```{r}
+library(readxl)
+library(zoo)
+library(stringr)
+```
+
+**Read the function**
+```{r}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI") 
+source("format_changing_function.R")
+```
+
+**LOOP THRU ALL DATA FILES OF MONTHLY YEARLY DATA**
+Change the working directory before running the codes to where all the datafiles are located. 
+```{r}
+# changing the working directory
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI_SEP/data") 
+dataFiles <- lapply(Sys.glob("SEP*.xlsx"), read_excel)
+```
+
+**Change the format**
+```{r}
+df_final <- lapply(dataFiles, change_format)
+```
+
+```{r}
+df_final
+```
+
+CHANGE THE WORKING DIRECTORY BEFORE WRITING THE DOCUMENTS!!
+```{r}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI_SEP/data_modified")
+for (i in 1:length(df_final)) {
+  write.csv2(df_final[[i]], paste0(i,"SEP.csv"), row.names = FALSE)
+}
+```
+

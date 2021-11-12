@@ -1,0 +1,495 @@
+---
+title: "Analysis de Ventas de Octubre DADATI"
+author: "Danyu"
+date: "29/10/2021"
+output: word_document
+---
+
+libraries used: 
+```{r}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+#Data merging: combinar datos del mes septiembre. 
+df_monthly <- 
+  list.files(path="C:/Users/Beatriz Garcia/Desktop/DANYU/ECI/ECI_OCT/data_modified", full.names = TRUE) %>% 
+  lapply(read.csv2) %>% 
+  bind_rows 
+
+df_monthly$Precio = as.numeric(df_monthly$Precio)
+
+df_monthly$Vendedor[df_monthly$Vendedor == 60605326] <- "Nati"
+df_monthly$Vendedor[df_monthly$Vendedor == 60609583] <- "Laura_Salamanca"
+df_monthly$Vendedor[df_monthly$Vendedor == 83576215] <- "Laura"
+df_monthly$Vendedor[df_monthly$Vendedor == 84203777] <- "Ana"
+df_monthly$Vendedor[df_monthly$Vendedor == 84402858] <- "Paqui"
+df_monthly$Vendedor[df_monthly$Vendedor == 84850148] <- "Alba"
+df_monthly$Vendedor[df_monthly$Vendedor == 75621292] <- "Rocio"
+
+```
+
+
+```{r}
+df_monthly$Punto.de.Venta.Centro[df_monthly$Punto.de.Venta.Centro == df_monthly$Punto.de.Venta.Centro[237]] <- "Cordoba"
+
+df_aux = df_monthly %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE))
+
+centers = df_aux[df_aux$ventaTotal>600,]$Punto.de.Venta.Centro
+centers2 = df_aux[df_aux$ventaTotal>600 & df_aux$ventaTotal<35000,]$Punto.de.Venta.Centro
+
+df_monthly$Punto.de.Venta.Centro[!(df_monthly$Punto.de.Venta.Centro %in% centers)] <- df_monthly$Punto.de.Venta.Centro[10]
+```
+
+## Análisis de Compras y Devoluciones JUNTAS
+
+### Barplot de las ventas en funcion de los puntos de venta
+
+Hemos obtenido la mayor venta online. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE)) %>% 
+  ggplot(aes(as.factor(Punto.de.Venta.Centro), y = ventaTotal)) +
+  geom_bar(stat = "identity", fill = "pink") + 
+  labs(x = "Punto de Venta", y = "Venta Total") +
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=15, hjust=1)) 
+```
+
+
+
+```{r}
+df_total <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro) %>% summarise(suma = sum(Precio, na.rm = TRUE))
+
+
+df_total$porcentaje <- df_total$suma/sum(df_total$suma)
+
+
+df_total
+```
+
+```{r}
+df_total %>% ggplot(aes(as.factor(Punto.de.Venta.Centro), y = suma)) +
+  geom_bar(stat = "identity", fill = "pink") + 
+  labs(x = "Punto de Venta", y = "Venta Total") +
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=15, hjust=1)) +
+  geom_text(aes(label = scales::percent(porcentaje), 
+                  y = porcentaje),
+              position = position_dodge(width = 0.9),
+              vjust = -1)
+```
+
+
+### Box-plot de cada ticket vendidos en función de cada punto de venta en ECI
+
+las ventas de Cordoba no es tan estable dado que solamente ha aperturado una semana. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(-200,700) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=5),
+        legend.title = element_text(size=6),
+        axis.text.x=element_blank()) +
+  ggtitle('Venta por ticket en funcion de punto de venta')
+```
+
+### Por centro: venta total y el mejor vendedor
+
+```{r, warning=FALSE, echo=FALSE}
+getmode <- function(v) {
+  uniqv <- na.omit(unique(v))
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+df2 <- df_monthly %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE), bestSales = getmode(Vendedor))
+
+head(df2[order(df2$ventaTotal, decreasing = TRUE),],7)
+```
+### Por cada vendedor: Cantidad vendida (restando las devueltas) y dinero "ganado" 
+
+```{r, warning=FALSE, echo=FALSE}
+df3 <- df_monthly %>% 
+  group_by(Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida, na.rm = TRUE), precioTotal = sum(Precio, na.rm = TRUE))
+
+head(df3[order(df3$Cantidades, decreasing = TRUE),],10)
+```
+
+
+### Tickets con Mayores Cantidades en Septiembre
+
+```{r, warning=FALSE, echo=FALSE}
+df4 <- df_monthly %>% 
+  group_by(Operacion, Punto.de.Venta.Centro, Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida), precioTotal = sum(Precio))
+
+head(df4[order(df4$Cantidades, decreasing = TRUE),],10)
+```
+
+### Para cada centro, HORAS PUNTAS (la moda) 
+
+```{r, warning=FALSE, echo=FALSE}
+df_monthly$hora <- str_sub(df_monthly$horaOperacion, -5,-4)
+df_monthly$hora <- as.numeric(df_monthly$hora) 
+
+df_monthly %>% 
+  filter(hora >= 0) %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(hora_punta = getmode(hora))
+```
+La tabla siguiente muestra mas detalles sobre las horas puntas (tabla de frecuencias para cada hora y centro). 
+```{r, warning=FALSE, echo=FALSE}
+centro_horas <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>%
+  group_by(Punto.de.Venta.Centro, hora) %>%
+  summarize(count=n())
+```
+```{r}
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[1],]
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[12],][-1,]
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[25],][-1,]
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[38],][-1,]
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[51],][-1,]
+centro_horas[centro_horas$Punto.de.Venta.Centro==centro_horas$Punto.de.Venta.Centro[66],][-1,]
+```
+
+En general, los clientes compran alrededor de las 18-20. 
+```{r, warning=FALSE, echo=FALSE}
+corners <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers2) %>% filter(hora>=0)
+table(corners$hora)
+```
+```{r, warning=FALSE, echo=FALSE}
+internet <- df_monthly %>% filter(Punto.de.Venta.Centro == df_monthly$Punto.de.Venta.Centro[10]) %>% filter(hora>=0)
+table(internet$hora)
+```
+
+```{r}
+corners <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers2)
+table(corners$hora)
+```
+
+El grafico de densidad indica que, el 80% de las ventas online son hechas a las 20:00. Y en los corners de ECI, las horas puntas son, como concluida anteriormente, alrededor de las 12:30 y 19:30. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  ggplot(aes(x= hora, fill = Punto.de.Venta.Centro)) +
+  geom_density(alpha=0.4) +
+  xlim(6,23) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=7),
+        legend.title = element_text(size=7)) +
+  ggtitle('Hora Punta en funcion de Centro de Venta') # tambien incluye las devoluciones
+```
+### Dias puntas teniendo en cuenta las devoluciones
+
+Esta tabla muestra las ventas hechas en todos los dias en el mes de septiembre teniendo en cuenta las devoluciones. 
+```{r, warning=FALSE, echo=FALSE}
+compras_diaria <- df_monthly %>% group_by(Fecha) %>% summarise(Venta_diaria = sum(Precio, na.rm = TRUE))
+head(compras_diaria[order(compras_diaria$Venta_diaria, decreasing = TRUE),],10)
+```
+
+Del siguiente grafico, podemos observar de que, las ventas 
+```{r}
+ggplot(compras_diaria) + 
+  geom_line(aes(x = Fecha, y = Venta_diaria, colour = "pink", group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = Venta_diaria, colour = "pink", size = Venta_diaria)) +
+  labs(x = "Octubre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+  ggtitle("Ventas de Octubre 2021")
+```
+
+Esta tabla muestra las ventas de cada centro en cada dia.
+```{r, warning=FALSE, echo=FALSE}
+centro_venta<- df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro, Fecha) %>% 
+  summarise(Venta = sum(Precio, na.rm = TRUE))
+
+head(centro_venta,10)
+
+centro_venta2<- df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers2) %>% 
+  group_by(Punto.de.Venta.Centro, Fecha) %>% 
+  summarise(Venta = sum(Precio, na.rm = TRUE))
+```
+
+Las tendencias de los centros son parecidas menos cordoba y salamanca, la tendencia de cordoba es diferente porque se ha aperturado al final del mes octubre. 
+```{r}
+centro_venta2 %>% ggplot() +
+  geom_line(aes(x = Fecha, y = Venta, colour = Punto.de.Venta.Centro, group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = Venta, colour = Punto.de.Venta.Centro)) +
+  labs(x = "Octubre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+    ggtitle("Ventas de Octubre 2021")+
+  facet_wrap(~Punto.de.Venta.Centro, nrow = 3)
+```
+
+### weekdays analysis
+
+```{r}
+df_aux_week <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers2) %>% 
+  group_by(Fecha, Operacion) %>% summarise(count = n())
+ope_per_day <- df_aux_week %>% group_by(Fecha) %>% summarise(tickets=n())
+ope_per_day$weekday <- rep(seq(1,7,1),6)[5:35]
+
+weekday_sales <- ope_per_day %>% group_by(weekday) %>% summarise(weekday_total_tickets = sum(tickets))
+
+weekday_sales$per_day <- rep(0,7)
+weekday_sales[weekday_sales$weekday>=5,]$per_day <- weekday_sales[weekday_sales$weekday>=5,]$weekday_total_tickets/5 
+weekday_sales[weekday_sales$weekday<=4,]$per_day <- weekday_sales[weekday_sales$weekday<=4,]$weekday_total_tickets/4
+
+weekday_sales
+```
+
+### Gráficos de Densidad en función de cada Punto de Venta (2 plot con diferentes escalas)
+Las densidades de las compras muestran que, las tendencias de los corners son parecidas, el precio medio por ticket está entre unos 50 euros.
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) + 
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(-200, 600)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) +
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(-100, 200)
+```
+
+
+## Analisis de las Compras 
+
+```{r, warning=FALSE, echo=FALSE}
+Compras_oct <- df_monthly %>% 
+  filter(Vendida>0)
+
+Compras_oct %>% group_by(Fecha) %>% summarise(suma=sum(Precio, na.rm = TRUE)) %>% ggplot() +
+  geom_line(aes(x = Fecha, y = suma, colour = "pink", group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = suma, colour = "pink", size = suma)) +
+  labs(x = "Octubre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+  ggtitle("Ventas de Octubre 2021")
+```
+
+### Mejor tickets de venta en el mes y sus correspondientes vendedores. 
+```{r, warning=FALSE, echo=FALSE}
+df6 <- Compras_oct %>% 
+  group_by(Operacion, Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida, na.rm = TRUE), precioTotal = sum(Precio, na.rm = TRUE))
+
+head(df6[order(df6$Cantidades, decreasing = TRUE),],10)
+```
+La cantidad de tickets que han hecho nuestros vendedores. 
+```{r, warning=FALSE, echo=FALSE}
+Vendedores_Propios <- c("Ana", "Laura", "Paqui", "Alba", "Nati", "Laura_Salamanca", "Rocio")
+
+df_6_1 <- df6 %>% filter(Vendedor %in% Vendedores_Propios)
+sort(table(df_6_1$Vendedor), decreasing = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df7 <- df6 %>% 
+  group_by(Vendedor) %>% 
+  filter(Vendedor %in% Vendedores_Propios) %>% 
+  summarise(medioVendido = mean(Cantidades), mediaPrecio = mean(precioTotal))
+
+df7
+```
+
+### Vendedores propios y sus resultados en ventas
+
+La tabla muestra las cantidades totales vendidas de cada vendedor, la venta total en euros y cantidades vendidas proporcional a su horario. 
+```{r, warning=FALSE, echo=FALSE}
+df8 <- Compras_oct %>% 
+  group_by(Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida), ventaTotal = sum(Precio))
+
+df9 <- df8 %>% filter(Vendedor %in% Vendedores_Propios)
+
+df9$vendido_a_horas = rep(0, nrow(df9))
+
+df9[df9$Vendedor == "Nati","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Nati"]/(25/31*14+30/31*17)/31*7
+df9[df9$Vendedor == "Laura_Salamanca","vendido_a_horas"] =  df9$Cantidades[df9$Vendedor=="Laura_Salamanca"]/21/31*7
+df9[df9$Vendedor == "Paqui","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Paqui"]/35/31*7
+df9[df9$Vendedor == "Laura","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Laura"]/20/31*7
+df9[df9$Vendedor == "Ana","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Ana"]/30/31*7
+df9[df9$Vendedor == "Alba","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Alba"]/25/31*7
+df9[df9$Vendedor == "Rocio","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Rocio"]/30/5*7
+
+
+df9
+```
+
+### Ventas hachas por ticket en funcion de Punto de Venta (sin devoluciones)
+```{r, warning=FALSE, echo=FALSE}
+Compras_oct %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(0,500) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=6),
+        axis.text.x=element_blank()) +
+  ggtitle('Venta por ticket en funcion de Punto de Venta')
+```
+
+```{r}
+EAN_compras <- Compras_oct %>% 
+  group_by(EAN) %>% 
+  summarise(vendidas = sum(Vendida))
+
+head(EAN_compras[order(EAN_compras$vendidas, decreasing = TRUE),],10)
+```
+
+```{r}
+Compras_oct[Compras_oct$EAN == 8435155708174,]
+Compras_oct[Compras_oct$EAN == 8435155708167,]
+Compras_oct[Compras_oct$EAN == 8435155806702,]
+Compras_oct[Compras_oct$EAN == 8435155430570,]
+Compras_oct[Compras_oct$EAN == 8435155434578,]
+Compras_oct[Compras_oct$EAN == 8435155430648,]
+Compras_oct[Compras_oct$EAN == 8435155432567,]
+Compras_oct[Compras_oct$EAN == 8435155434516,]
+Compras_oct[Compras_oct$EAN == 8435155433175,]
+```
+
+## Devoluciones
+```{r, warning=FALSE, echo=FALSE}
+Devolu_oct <- df_monthly %>% 
+  filter(Vendida<0)
+
+Devolu_oct %>% group_by(Fecha) %>% summarise(suma=sum(Precio, na.rm = TRUE)) %>% ggplot() +
+  geom_line(aes(x = Fecha, y = suma, colour = "pink", group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = suma, colour = "pink", size = suma)) +
+  labs(x = "Octubre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+  ggtitle("Devoluciones de Octubre 2021")
+
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df10 <- Devolu_oct %>% 
+  group_by(Vendedor) %>% 
+  summarise(cantidadesDevueltas = sum(Vendida, na.rm = TRUE), totalDevuelto = sum(Precio, na.rm = TRUE))
+
+df10 <- df10 %>% filter(Vendedor %in% Vendedores_Propios)
+
+df10
+```
+
+Proporcion 
+```{r, warning=FALSE, echo=FALSE}
+df_vendedores <- merge(df9, df10, by = "Vendedor")
+
+df_vendedores$cantidadesDevueltas <- abs(df_vendedores$cantidadesDevueltas)
+df_vendedores$total <- df_vendedores$Cantidades+df_vendedores$cantidadesDevueltas
+
+df_vendedores$propCompras <- df_vendedores$Cantidades/df_vendedores$total
+df_vendedores$propDevolu <- df_vendedores$cantidadesDevueltas/df_vendedores$total
+
+df_vendedores
+```
+
+```{r}
+# coste empresarial para los trabajadores en OCTUBRE
+ANA <- 987.28+233+25.67+54.30+5.92+1.97
+LAURA <- 957.15+225.89+24.89+64.13+5.74+1.91
+PAQUI <- 489.07+115.42+12.72+26.9+2.93+0.98+991.43+233.98+25.78+54.53+5.95+1.98
+NATI <- 843.13+198.98+21.92+56.49+5.06+1.69+389.9+92.02+10.14+26.12+2.34+0.78
+LAURA_S <- 875.55+206.63+22.77+58.66+5.25+1.75
+ROCIO <- 329.1+77.67+8.56+22.05+1.97+0.66
+ALBA <- 987.28+233+25.67+66.15+5.92+1.97
+
+nominas <- c(ALBA, ANA, LAURA, LAURA_S, NATI, PAQUI, ROCIO)
+df_vendedores$nomina <- nominas
+
+df_vendedores$ventaNomina <- df_vendedores$ventaTotal/df_vendedores$nomina
+df_vendedores$totalNomina <- (df_vendedores$ventaTotal+df_vendedores$totalDevuelto)/df_vendedores$nomina
+
+df_vendedores
+```
+
+### Por operacion y por cada punto de venta, las cantidades de dinero en devolucion. 
+```{r, warning=FALSE, echo=FALSE}
+Devolu_oct %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(-200,0) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=6),
+        axis.text.x=element_blank()) +
+  ggtitle('Venta por ticket en funcion de Punto de Venta')
+```
+
+
+
+```{r}
+EAN_devolus <- Devolu_oct %>% 
+  group_by(EAN) %>% 
+  summarise(vendidas = sum(Vendida))
+
+head(EAN_devolus[order(EAN_devolus$vendidas, decreasing = FALSE),],10)
+```
+
+```{r}
+Devolu_oct[Devolu_oct$EAN == 8435155708167,]
+Devolu_oct[Devolu_oct$EAN == 8435155708174,]
+Devolu_oct[Devolu_oct$EAN == 8435155430570,]
+Devolu_oct[Devolu_oct$EAN == 8435155432567,]
+Devolu_oct[Devolu_oct$EAN == 8435155430563,]
+Devolu_oct[Devolu_oct$EAN == 8435155431348,]
+Devolu_oct[Devolu_oct$EAN == 8435155432420,]
+Devolu_oct[Devolu_oct$EAN == 8435155430549,]
+Devolu_oct[Devolu_oct$EAN == 8435155430556,]
+
+```
+
+
+```{r}
+length(unique(Compras_oct$Operacion))
+length(unique(Devolu_oct$Operacion))
+```
+
+
+
+
+
+

@@ -1,0 +1,593 @@
+---
+title: "TRIMESTRAL JUN, JUL, AUG"
+author: "Danyu"
+date: "25/10/2021"
+output: word_document
+---
+
+
+```{r}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+library(tidyr)
+```
+
+
+```{r}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI/ECI_TRIMES")
+JUN <- read_excel("LISTADO DE VENTAS Junio  2021.xlsx")
+JUL <- read_excel("LISTADO DE VENTAS Julio  2021.xlsx")
+AUG <- read_excel("LISTADO DE VENTAS Agosto  2021.xlsx")
+
+# JUN %>% select(-contains("PROCESO"))
+```
+
+```{r}
+colnames(JUN) <- JUN[1,] 
+
+JUN <- JUN[-1,]
+
+colnames(JUN)[14:18] <- paste(colnames(JUN)[14:18], "LAURA", sep = "_")
+colnames(JUN)[19:23] <- paste(colnames(JUN)[19:23], "ANA", sep = "_")
+colnames(JUN)[24:28] <- paste(colnames(JUN)[24:28], "Otros_Murcia", sep = "_")
+colnames(JUN)[31:35] <- paste(colnames(JUN)[31:35], "PAQUI", sep = "_")
+colnames(JUN)[36:40] <- paste(colnames(JUN)[36:40], "EVA", sep = "_")
+colnames(JUN)[41:45] <- paste(colnames(JUN)[41:45], "Otros_Sevilla", sep = "_")
+
+JUN <- JUN[-(8:13)]
+JUN <- JUN[-5]
+JUN <- JUN[1:40]
+
+colnames(JUN)[c(5,9,14,19,26,31,36)] <- paste(colnames(JUN)[c(5,9,14,19,26,31,36)], "devo", sep = "_")
+
+colnames(JUN)[22] <- "UDS_MURCIA"
+colnames(JUN)[39] <- "UDS_SEVILLA"
+
+JUN[colnames(JUN)[-(1:2)]] <- sapply(JUN[colnames(JUN)[-(1:2)]],as.numeric) # to numeric 
+
+JUN[-(1:2)][is.na(JUN[-(1:2)])] <- 0
+
+JUN <- JUN[1:30,]
+JUN$FECHA <- seq(as.Date("2021-06-01"), as.Date("2021-06-30"),1)
+```
+
+```{r}
+colnames(JUL) <- JUL[1,] 
+
+JUL <- JUL[-1,]
+
+colnames(JUL)[14:18] <- paste(colnames(JUL)[14:18], "LAURA", sep = "_")
+colnames(JUL)[19:23] <- paste(colnames(JUL)[19:23], "ANA", sep = "_")
+colnames(JUL)[24:28] <- paste(colnames(JUL)[24:28], "Otros_Murcia", sep = "_")
+colnames(JUL)[31:35] <- paste(colnames(JUL)[31:35], "PAQUI", sep = "_")
+colnames(JUL)[36:40] <- paste(colnames(JUL)[36:40], "EVA", sep = "_")
+colnames(JUL)[41:45] <- paste(colnames(JUL)[41:45], "Otros_Sevilla", sep = "_")
+
+JUL <- JUL[-(8:13)]
+JUL <- JUL[-5]
+JUL <- JUL[1:40]
+
+colnames(JUL)[c(5,9,14,19,26,31,36)] <- paste(colnames(JUL)[c(5,9,14,19,26,31,36)], "devo", sep = "_")
+
+colnames(JUL)[22] <- "UDS_MURCIA"
+colnames(JUL)[39] <- "UDS_SEVILLA"
+
+JUL[colnames(JUL)[-(1:2)]] <- sapply(JUL[colnames(JUL)[-(1:2)]],as.numeric) # to numeric 
+
+JUL[-(1:2)][is.na(JUL[-(1:2)])] <- 0
+
+JUL <- JUL[1:31,]
+JUL$FECHA <- seq(as.Date("2021-07-01"), as.Date("2021-07-31"),1)
+```
+
+```{r}
+colnames(AUG) <- AUG[1,] 
+
+AUG <- AUG[-1,]
+
+colnames(AUG)[14:18] <- paste(colnames(AUG)[14:18], "LAURA", sep = "_")
+colnames(AUG)[19:23] <- paste(colnames(AUG)[19:23], "ANA", sep = "_")
+colnames(AUG)[24:28] <- paste(colnames(AUG)[24:28], "Otros_Murcia", sep = "_")
+colnames(AUG)[31:35] <- paste(colnames(AUG)[31:35], "PAQUI", sep = "_")
+colnames(AUG)[36:40] <- paste(colnames(AUG)[36:40], "EVA", sep = "_")
+colnames(AUG)[41:45] <- paste(colnames(AUG)[41:45], "Otros_Sevilla", sep = "_")
+
+AUG <- AUG[-(8:13)]
+AUG <- AUG[-5]
+AUG <- AUG[1:40]
+
+colnames(AUG)[c(5,9,14,19,26,31,36)] <- paste(colnames(AUG)[c(5,9,14,19,26,31,36)], "devo", sep = "_")
+
+colnames(AUG)[22] <- "UDS_MURCIA"
+colnames(AUG)[39] <- "UDS_SEVILLA"
+
+AUG[colnames(AUG)[-(1:2)]] <- sapply(AUG[colnames(AUG)[-(1:2)]],as.numeric) # to numeric 
+
+AUG[-(1:2)][is.na(AUG[-(1:2)])] <- 0
+
+AUG <- AUG[1:31,]
+AUG$FECHA <- seq(as.Date("2021-08-01"), as.Date("2021-08-31"),1)
+```
+
+```{r}
+# data merging
+segundo_tri <- rbind(JUN, JUL, AUG)
+
+segundo_tri$online = segundo_tri$`VTA ONLINE 996`+segundo_tri$DEVOLUCION 
+```
+
+```{r}
+mensual <- segundo_tri %>% group_by(month = lubridate::floor_date(FECHA, "month")) %>% 
+  summarise(venta_mensual_online = sum(online),
+            venta_mensual_Murcia = sum(MURCIA),
+            venta_mensual_Sevilla = sum(SEVILLA))
+
+mensual %>% ggplot()  +
+  geom_point(aes(x = month, y = venta_mensual_online)) +
+  geom_point(aes(x = month, y = venta_mensual_Murcia, color = "red")) +
+  geom_point(aes(x = month, y = venta_mensual_Sevilla, color = "blue")) +
+  
+  geom_line(aes(x = month, y = venta_mensual_online), group = 1) + 
+  geom_label_repel(aes(x = month, y = venta_mensual_online,label = venta_mensual_online), nudge_x = 0.2, size = 4) +
+  
+  geom_line(aes(x = month, y = venta_mensual_Murcia, color = "red"), group = 1) + 
+  geom_label_repel(aes(x = month, y = venta_mensual_Murcia,label = venta_mensual_Murcia, color = "red"), nudge_x = 0.35, size = 4) +
+  
+  geom_line(aes(x = month, y = venta_mensual_Sevilla, color = "blue"), group = 1) +
+  geom_label_repel(aes(x = month, y = venta_mensual_Sevilla,label = venta_mensual_Sevilla, color = "blue"), nudge_x = 0.35, size = 4) +
+  
+  ylab("Ventas (€)") + 
+  xlab("Mes") + 
+  
+  scale_color_manual(labels = c("Sevilla", "Murcia"), values = c("red", "blue"))
+```
+
+```{r}
+mensual2 <- segundo_tri %>% group_by(month = lubridate::floor_date(FECHA, "month")) %>% 
+  summarise(unidad_mensual_online = sum(UDS), 
+            unidad_mensual_murcia = sum(UDS_ANA) + sum(UDS_LAURA) + sum(UDS_Otros_Murcia), 
+            unidad_mensual_sevilla = sum(UDS_PAQUI) + sum(UDS_EVA) + sum(UDS_Otros_Sevilla),
+            unidad_mensual_online_dev = sum(UDS_devo),
+            unidad_mensual_murcia_dev = sum(UDS_ANA_devo) + sum(UDS_LAURA_devo) + sum(UDS_Otros_Murcia_devo),
+            unidad_mensual_sevilla_dev = sum(UDS_PAQUI_devo) + sum(UDS_EVA_devo) + sum(UDS_Otros_Sevilla_devo))
+```
+
+```{r}
+mensual2 %>% ggplot()  +
+  geom_point(aes(x = month, y = unidad_mensual_online)) +
+  geom_point(aes(x = month, y = unidad_mensual_murcia, color = "red")) +
+  geom_point(aes(x = month, y = unidad_mensual_sevilla, color = "blue")) +
+  
+  geom_point(aes(x = month, y = unidad_mensual_online_dev)) +
+  geom_point(aes(x = month, y = unidad_mensual_murcia_dev, color = "red")) +
+  geom_point(aes(x = month, y = unidad_mensual_sevilla_dev, color = "blue")) +
+
+  
+  geom_line(aes(x = month, y = unidad_mensual_online), group = 1, size=1.5) + 
+  geom_label_repel(aes(x = month, y = unidad_mensual_online,label = unidad_mensual_online), nudge_x = 0.2, size = 4) +
+  
+  geom_line(aes(x = month, y = unidad_mensual_murcia, color = "red"), group = 1, size=1.5) + 
+  geom_label_repel(aes(x = month, y = unidad_mensual_murcia,label = unidad_mensual_murcia, color = "red"), nudge_x = 0.35, size = 4) +
+  
+  geom_line(aes(x = month, y = unidad_mensual_sevilla, color = "blue"), group = 1, size=1.5) +
+  geom_label_repel(aes(x = month, y = unidad_mensual_sevilla,label = unidad_mensual_sevilla, color = "blue"), nudge_x = 0.35, size = 4, ylim=c(1000, 1500)) +
+  
+  geom_line(aes(x = month, y = unidad_mensual_online_dev), group = 1, linetype = "dashed") + 
+  geom_text_repel(aes(x = month, y = unidad_mensual_online_dev,label = unidad_mensual_online_dev),  size = 3, min.segment.length = 0, ylim = c(500, 750)) +
+  
+  geom_line(aes(x = month, y = unidad_mensual_murcia_dev, color = "red"), group = 1, linetype = "dashed") + 
+  geom_text_repel(aes(x = month, y = unidad_mensual_murcia_dev,label = unidad_mensual_murcia_dev, color = "red"),  size = 3, min.segment.length = 0, ylim = c(200, 400)) +
+  
+  geom_line(aes(x = month, y = unidad_mensual_sevilla_dev, color = "blue"), group = 1, linetype = "dashed") +
+  geom_text_repel(aes(x = month, y = unidad_mensual_sevilla_dev,label = unidad_mensual_sevilla_dev, color = "blue"),  size = 3, min.segment.length = 0, ylim = c(0, 200)) +
+  
+  ylab("Ventas (€)") + 
+  xlab("Mes") + 
+  
+  scale_color_manual(labels = c("Sevilla", "Murcia"), values = c("red", "blue"))
+```
+
+```{r}
+summary_df <- matrix(c(summary(segundo_tri$SEVILLA),
+                       summary(segundo_tri$UDS_SEVILLA),
+                       summary(segundo_tri$MURCIA),
+                       summary(segundo_tri$UDS_MURCIA),
+                       summary(segundo_tri$online),
+                       summary(segundo_tri$UDS-segundo_tri$UDS_devo)
+),ncol = 6)
+
+colnames(summary_df) <- c("Sevilla", "Sevilla Uds", "Murcia","Murcia Uds", "online", "online Uds")
+rownames(summary_df) <- c("Min", "1st Qu.(25%)", "Median (50%)", "Mean", "3rd Qu.(75%)", "Max")
+
+summary_df
+```
+### Ventas de Sevilla y Murcia
+```{r}
+segundo_tri$UDS_online <- segundo_tri$UDS-segundo_tri$UDS_devo
+data_long2 <- melt(segundo_tri[c("UDS_SEVILLA", "UDS_MURCIA", "UDS_online")])
+
+data_long2 %>% ggplot() +
+  geom_boxplot(aes(x = variable, y = value, fill = variable)) +
+  xlab("Puntos de Venta") +
+  ylab("Venta")
+```
+
+```{r}
+data_long <- melt(segundo_tri[c("SEVILLA", "MURCIA", "online")])
+
+data_long %>% ggplot() +
+  geom_boxplot(aes(x = variable, y = value, fill = variable)) +
+  xlab("Puntos de Venta") +
+  ylab("Venta")
+```
+
+#### Ventas por Nomina
+```{r}
+Nom_Eva <- c(1111.525, 1107.01, 1107.01)
+Nom_Paqui <- c(1111.525, 1107.01, 1107.01)
+Nom_Ana <- c(1333.33, 1333.33, 1521.684)
+Nom_Laura <- c(888.88, 888.88, 1014.456)
+
+Nom_Eva_tri <- sum(Nom_Eva)
+Nom_Paqui_tri <- sum(Nom_Paqui)
+Nom_Ana_tri <- sum(Nom_Ana)
+Nom_Laura_tri <- sum(Nom_Laura)
+```
+
+```{r}
+df <- matrix(c(colSums(segundo_tri[-(1:2)])[5:19], colSums(segundo_tri[-(1:2)])[22:36]),byrow = FALSE, ncol = 6)
+
+colnames(df) <- c("Laura", "ANA", "Otros_Murcia", "Paqui", "Eva", "Otros_Sevilla")
+rownames(df) <- c("Uds", "Ventas", "uds Devueltas", "Devoluciones", "Total(Ventas-Devoluciones)")
+
+nomina <- c(Nom_Laura_tri, Nom_Ana_tri, 0, Nom_Paqui_tri, Nom_Eva_tri, 0)
+nominaPorVenta <- df[5,]/nomina
+
+df1 <- rbind(df, nomina, nominaPorVenta)
+
+round(df1,2)
+```
+```{r}
+Sevilla <- c(sum(JUN$SEVILLA), sum(JUL$SEVILLA), sum(AUG$SEVILLA))
+Murcia <- c(sum(JUN$MURCIA), sum(JUL$MURCIA), sum(AUG$MURCIA))
+
+nom_sevilla <- Nom_Eva+Nom_Paqui
+nom_murcia <- Nom_Ana+Nom_Laura
+
+df4 <- matrix(c(Sevilla, nom_sevilla, Sevilla/nom_sevilla),byrow = TRUE, ncol = 3)
+colnames(df4) <- c("Junio", "Julio", "Agosto")
+rownames(df4) <- c("Venta", "Nomina", "Venta/Nomina")
+
+df5 <- matrix(c(Murcia, nom_murcia, Murcia/nom_murcia),byrow = TRUE, ncol = 3)
+colnames(df5) <- c("Junio", "Julio", "Agosto")
+rownames(df5) <- c("Venta", "Nomina", "Venta/Nomina")
+```
+
+
+```{r}
+df4
+```
+
+```{r}
+df5
+```
+
+```{r}
+centros = c(15644.13 + 22434.56 + 18204.99 , 17205.80 + 12791.19 + 9532.90)
+nomina = c(2792.22+4188.34, 3325.54+3325.54)
+
+df3 <- matrix(c(centros,nomina, centros/nomina), byrow = TRUE, ncol = 2)
+
+colnames(df3) <- c("Murcia", "Sevilla")
+rownames(df3) <- c("Venta Total", "Nomina Total" ,"Venta/Nomina")
+
+df3
+```
+
+```{r}
+df_resumen <- matrix(c(rowSums(df[,(1:3)]), 
+                       rowSums(df[,(4:6)]), 
+                       colSums(segundo_tri[(3:6)]),
+                       colSums(segundo_tri[(3:6)])[2]+colSums(segundo_tri[(3:6)])[4]
+                       ), ncol = 3)
+
+colnames(df_resumen) <- c("Murcia", "Sevilla", "Online")
+rownames(df_resumen) <- c("Uds", "Ventas", "uds Devueltas", "Devoluciones", "Total(Ventas-Devoluciones)")
+
+df_resumen
+```
+
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, color = "pink3")) +
+  geom_point(aes(x = FECHA, y = SEVILLA, color = "skyblue")) + 
+  geom_point(aes(x = FECHA, y = online)) +
+  
+  geom_line(aes(x = FECHA, y = MURCIA, group = 1, color = "pink3"), linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = SEVILLA, group = 1),color = "skyblue", linetype = "dashed") +
+  geom_line(aes(x = FECHA, y = online, group = 1), linetype = "dashed") + 
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = c("Murcia", "Sevilla", "Online"), values = c("skyblue", "pink3", "black")) +
+  ggtitle("Ventas Trimestre Junio, Julio, Agosto")
+
+```
+
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, color = "black")) +
+  geom_point(aes(x = FECHA, y = SEVILLA, color = "blue")) + 
+
+  geom_line(aes(x = FECHA, y = MURCIA, group = 1), color = "black", linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = SEVILLA, group = 1),color = "blue", linetype = "dashed") +
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = c("Murcia", "Sevilla"), values = c("black", "blue")) +
+  ggtitle("Ventas Trimestre Junio, Julio, Agosto")
+```
+
+#### POR SEPARADO
+
+**JUNIO**
+```{r}
+JUN %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, color = "black")) +
+  geom_point(aes(x = FECHA, y = SEVILLA, color = "blue")) + 
+
+  geom_line(aes(x = FECHA, y = MURCIA, group = 1), color = "black", linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = SEVILLA, group = 1),color = "blue", linetype = "dashed") +
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = c("Murcia (20.284,01€)", "Sevilla (12.623,39€)"), values = c("black", "blue")) +
+  ggtitle("Ventas de Junio 2021")
+```
+
+```{r}
+JUN$online = JUN$`VTA ONLINE 996`+JUN$DEVOLUCION 
+
+
+JUN %>% ggplot() +
+  geom_point(aes(x = FECHA, y = online, color = "black")) +
+  
+  geom_line(aes(x = FECHA, y = online, group = 1), color = "black", linetype = "dashed") + 
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = "Online (18.120,84€)", values = "black") +
+  ggtitle("Ventas de Junio 2021")
+```
+
+**JULIO**
+```{r}
+JUL %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, color = "black")) +
+  geom_point(aes(x = FECHA, y = SEVILLA, color = "blue")) + 
+
+  geom_line(aes(x = FECHA, y = MURCIA, group = 1), color = "black", linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = SEVILLA, group = 1),color = "blue", linetype = "dashed") +
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = c("Murcia (24.739,62€)", "Sevilla (17.655,19€)"), values = c("black", "blue")) +
+  ggtitle("Ventas de Julio 2021")
+```
+
+```{r}
+JUL$online = JUL$`VTA ONLINE 996`+JUL$DEVOLUCION 
+
+
+JUL %>% ggplot() +
+  geom_point(aes(x = FECHA, y = online, color = "black")) +
+  
+  geom_line(aes(x = FECHA, y = online, group = 1), color = "black", linetype = "dashed") + 
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = "Online (34.516,10€)", values = "black") +
+  ggtitle("Ventas de Julio 2021")
+```
+
+**AGOSTO**
+```{r}
+AUG %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, color = "black")) +
+  geom_point(aes(x = FECHA, y = SEVILLA, color = "blue")) + 
+
+  geom_line(aes(x = FECHA, y = MURCIA, group = 1), color = "black", linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = SEVILLA, group = 1),color = "blue", linetype = "dashed") +
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = c("Murcia (11.260,05€)", "Sevilla (9.251,31€)"), values = c("black", "blue")) +
+  ggtitle("Ventas de Agosto 2021")
+```
+
+```{r}
+AUG$online = AUG$`VTA ONLINE 996`+AUG$DEVOLUCION 
+
+AUG %>% ggplot() +
+  geom_point(aes(x = FECHA, y = online, color = "black")) +
+  
+  geom_line(aes(x = FECHA, y = online, group = 1), color = "black", linetype = "dashed") + 
+  ylab("Ventas") + 
+  xlab("Fecha") + 
+  scale_color_manual(labels = "Online (15.352,79€)", values = "black") +
+  ggtitle("Ventas de Agosto 2021")
+```
+
+## COMPRAS + DEVOLUCIONES
+
+### Serie de Murcia 
+#### En ventas (euros)
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = MURCIA, colour = "black")) +
+  geom_point(aes(x = FECHA, y = TOTAL_ANA, colour = "skyblue")) + 
+  geom_point(aes(x = FECHA, y = TOTAL_LAURA, colour = "pink3")) + 
+  
+  geom_line(aes(x = FECHA, y = MURCIA, colour = "black", group = 1), linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = TOTAL_ANA, colour = "skyblue", group = 1), linetype = "dashed") +
+  geom_line(aes(x = FECHA, y = TOTAL_LAURA, colour = "pink3", group = 1), linetype = "dashed") +
+
+    scale_color_manual(labels = c("Total Murcia", "Total Laura", "Total ANA"), values = c("black", "skyblue", "pink3")) + 
+  ggtitle("Serie de Murcia de Ventas Trimestre Junio, Julio y Agosto")
+```
+
+#### En unidades 
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = UDS_MURCIA, colour = "black")) +
+  geom_point(aes(x = FECHA, y = UDS_ANA-UDS_ANA_devo, colour = "skyblue")) + 
+  geom_point(aes(x = FECHA, y = UDS_LAURA-UDS_LAURA_devo, colour = "pink3")) + 
+  
+  geom_line(aes(x = FECHA, y = UDS_MURCIA, colour = "black", group = 1), linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = UDS_ANA-UDS_ANA_devo, colour = "skyblue", group = 1), linetype = "dashed") +
+  geom_line(aes(x = FECHA, y = UDS_LAURA-UDS_LAURA_devo, colour = "pink3", group = 1), linetype = "dashed") +
+
+  scale_color_manual(labels = c("UDS Murcia", "UDS Laura", "UDS ANA"), values = c("black", "skyblue", "pink3")) + 
+  ggtitle("Serie de Murcia en UDS Trimestre Junio, Julio y Agosto") 
+```
+
+### Serie de Sevilla
+#### En Ventas (euros)
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = SEVILLA, colour = "black")) +
+  geom_point(aes(x = FECHA, y = TOTAL_PAQUI, colour = "skyblue")) + 
+  geom_point(aes(x = FECHA, y = TOTAL_EVA, colour = "pink3")) + 
+
+  geom_line(aes(x = FECHA, y = SEVILLA, colour = "black", group = 1), linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = TOTAL_PAQUI, colour = "skyblue", group = 1), linetype = "dashed") +
+    geom_line(aes(x = FECHA, y = TOTAL_EVA, colour = "pink3", group = 1), linetype = "dashed") +
+
+  scale_color_manual(labels = c("Total Sevilla", "Total EVA", "Total PAQUI"), values = c("black", "skyblue", "pink3")) + 
+  ggtitle("Serie de Sevilla Trimestre Junio, Julio y Agosto") 
+```
+
+#### En unidades 
+
+```{r}
+segundo_tri %>% ggplot() +
+  geom_point(aes(x = FECHA, y = UDS_SEVILLA, colour = "black")) +
+  geom_point(aes(x = FECHA, y = UDS_PAQUI-UDS_PAQUI_devo, colour = "skyblue")) + 
+  geom_point(aes(x = FECHA, y = UDS_EVA-UDS_EVA_devo, colour = "pink3")) + 
+
+  geom_line(aes(x = FECHA, y = UDS_SEVILLA, colour = "black", group = 1), linetype = "dashed") + 
+  geom_line(aes(x = FECHA, y = UDS_PAQUI-UDS_PAQUI_devo, colour = "skyblue", group = 1), linetype = "dashed") +
+    geom_line(aes(x = FECHA, y = UDS_EVA-UDS_EVA_devo, colour = "pink3", group = 1), linetype = "dashed") +
+
+  scale_color_manual(labels = c("UDS Sevilla", "UDS EVA", "UDS PAQUI"), values = c("black", "skyblue", "pink3")) + 
+  ggtitle("Serie de Sevilla Trimestre Junio, Julio y Agosto")
+```
+
+### Dias de la Semana
+```{r}
+segundo_tri[segundo_tri$SEVILLA == 0,]$SEVILLA <- NA
+segundo_tri[segundo_tri$MURCIA == 0,]$MURCIA <- NA
+```
+
+#### Sevilla
+```{r}
+df0 <- segundo_tri[c("DIA", "SEVILLA")] %>% 
+  group_by(DIA) %>% 
+  summarise(Per_day = mean(SEVILLA, na.rm=TRUE))
+
+df0[order(df0$Per_day, decreasing = TRUE), ]
+```
+
+```{r}
+segundo_tri$SEVILLA[is.na(segundo_tri$SEVILLA)] <-0
+
+sevilla1 <- segundo_tri %>% 
+  select(1, 40, 2) %>% 
+  spread(key = DIA, value = SEVILLA) %>% 
+  select(-1)
+
+summary(sevilla1)
+```
+
+
+```{r}
+segundo_tri[c("DIA", "SEVILLA")] %>% 
+  group_by(DIA) %>% 
+  ggplot() + geom_boxplot(aes(x = DIA, y = SEVILLA, fill = DIA))
+```
+
+#### Murcia
+```{r}
+df1 = segundo_tri[c("DIA", "MURCIA")] %>% 
+  group_by(DIA) %>% 
+  summarise(Per_day = mean(MURCIA, na.rm = TRUE))
+
+df1[order(df1$Per_day, decreasing = TRUE), ]
+```
+
+```{r}
+segundo_tri$MURCIA[is.na(segundo_tri$MURCIA)] <-0
+
+murcia1 <- segundo_tri %>% 
+  select(1,23, 2) %>% 
+  spread(key = DIA, value = MURCIA) %>% 
+  select(-1)
+
+summary(murcia1)
+```
+
+
+
+```{r}
+segundo_tri[c("DIA", "MURCIA")] %>% 
+  group_by(DIA) %>% 
+  ggplot() + geom_boxplot(aes(x = DIA, y = MURCIA, fill = DIA))
+```
+
+### % De Compras y Devoluciones
+
+#### Por Centro
+```{r}
+segundo_tri$Murcia_compra = segundo_tri$UDS_ANA + segundo_tri$UDS_LAURA +segundo_tri$UDS_Otros_Murcia
+segundo_tri$Murcia_devol = segundo_tri$UDS_ANA_devo + segundo_tri$UDS_LAURA_devo + segundo_tri$UDS_Otros_Murcia_devo
+segundo_tri$Murcia_uds_compra_devo = segundo_tri$Murcia_compra+segundo_tri$Murcia_devol
+
+segundo_tri$Sevilla_compra = segundo_tri$UDS_PAQUI + segundo_tri$UDS_EVA + segundo_tri$UDS_Otros_Sevilla
+segundo_tri$Sevilla_devol = segundo_tri$UDS_PAQUI_devo + segundo_tri$UDS_EVA_devo + segundo_tri$UDS_Otros_Sevilla_devo
+segundo_tri$Sevilla_uds_compra_devo = segundo_tri$Sevilla_compra+segundo_tri$Sevilla_devol
+
+segundo_tri$online_uds_compra_devo = segundo_tri$UDS+segundo_tri$UDS_devo
+
+
+compra_devo_centro = matrix(c(sum(segundo_tri$Murcia_compra)/sum(segundo_tri$Murcia_uds_compra_devo),
+                              sum(segundo_tri$Murcia_devol)/sum(segundo_tri$Murcia_uds_compra_devo),
+                              sum(segundo_tri$Sevilla_compra)/sum(segundo_tri$Sevilla_uds_compra_devo),
+                              sum(segundo_tri$Sevilla_devol)/sum(segundo_tri$Sevilla_uds_compra_devo),
+                              sum(segundo_tri$UDS)/sum(segundo_tri$online_uds_compra_devo),
+                              sum(segundo_tri$UDS_devo)/sum(segundo_tri$online_uds_compra_devo)), ncol = 3)
+
+colnames(compra_devo_centro) <- c("Murcia", "Sevilla", "Online")
+rownames(compra_devo_centro) <- c("Compras", "Devoluciones")
+
+compra_devo_centro
+```
+
+#### Por Vendedores
+```{r}
+segundo_tri$LAURA_UDS_TOTAL <- segundo_tri$UDS_LAURA + segundo_tri$UDS_LAURA_devo
+segundo_tri$ANA_UDS_TOTAL <- segundo_tri$UDS_ANA + segundo_tri$UDS_ANA_devo
+
+segundo_tri$PAQUI_UDS_TOTAL <- segundo_tri$UDS_PAQUI + segundo_tri$UDS_PAQUI_devo
+segundo_tri$EVA_UDS_TOTAL <- segundo_tri$UDS_EVA + segundo_tri$UDS_EVA_devo
+
+compra_devo_vendedor <- matrix(c(sum(segundo_tri$UDS_LAURA)/sum(segundo_tri$LAURA_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_ANA)/sum(segundo_tri$ANA_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_PAQUI)/sum(segundo_tri$PAQUI_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_EVA)/sum(segundo_tri$EVA_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_LAURA_devo)/sum(segundo_tri$LAURA_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_ANA_devo)/sum(segundo_tri$ANA_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_PAQUI_devo)/sum(segundo_tri$PAQUI_UDS_TOTAL),
+                                 sum(segundo_tri$UDS_EVA_devo)/sum(segundo_tri$EVA_UDS_TOTAL)), byrow = TRUE,ncol = 4)
+
+
+colnames(compra_devo_vendedor) <- c("LAURA", "ANA", "PAQUI", "EVA")
+rownames(compra_devo_vendedor) <- c("Compras", "Devoluciones")
+
+compra_devo_vendedor
+```

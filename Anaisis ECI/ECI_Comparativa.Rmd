@@ -1,0 +1,149 @@
+---
+title: "ECI Comparativa DADATI"
+author: "Danyu"
+date: "19/10/2021"
+output: word_document
+---
+
+```{r}
+library(ggplot2)
+```
+## Comparativas mensuales 
+```{r}
+ene20<- c(0,0,0,0,0,0)
+feb20<- c(0,0,0,0,0,0)
+mar20<- c(11881.81, 25260.06, 9261.55)
+abr20<- c(0,0,0,0,0,0)
+may20<- c(2966.84, 103613.22, 0,0,0,0)
+jun20<- c(13947.7, 3778.51, 0,0,0,0)
+jul20<- c(12845.1, 0, 0,0,0,0)
+ago20<- c(4381.86, 12057.15, 0,0,0,0)
+sep20<- c(7193, 6793,0,0,0,0)
+oct20<- c(12529.31, 26085.86, 0,0,0,0)
+nov20<- c(0,0,0,0,0,0)
+dic20<- c(0,0,0,0,0,0)
+
+```
+
+```{r}
+# orden es, sevilla, online, murcia, goya, malaga, salamanca y cordoba
+ene21<- c(6572.83, 27625.5, 4786.2,0,0,0)
+feb21<- c(3986.16, 21782.94, 3666.56,0,0,0)
+mar21<- c(11066.49, 20509.5, 8830.26,0,0,0)
+abr21<- c(18657.55, 44539.64, 15460.95,0,0,0)
+may21<- c(17499.55, 34578.63, 20775.21,0,0,0)
+jun21<- c(12922.31, 22071.68, 20965.98,0,0,0)
+jul21<- c(17655.19, 34516.1, 24739.62,0,0,0)
+ago21<- c(9251.31, 15352.79, 11260.05,0,0,0)
+sep21<- c(8731, 24076.92, 13426.79,7750.28, 5306.34, 2126.84)
+oct21<- c(19207.42, 25885.2, 25154.75, 10847.64, 13037.82, 8293.67, 3793.85)
+nov21<- c(0,0,0,0,0,0)
+dic21<- c(0,0,0,0,0,0)
+```
+
+```{r}
+oct20<- c(12529.31, 26085.86,NA,NA,NA,NA,NA)
+oct <- data.frame(oct20, oct21)
+oct$ciudad <- c("Sevilla", "Online", "Murcia", "Goya", "Malaga", "Salamanca", "Cordoba")
+```
+
+```{r}
+ggplot(oct) +
+  geom_point(aes(x = ciudad, y = oct20, colour = "pink3", size = oct20)) + 
+  geom_point(aes(x = ciudad, y = oct21, colour = "skyblue", size = oct21)) + 
+  geom_line(aes(x = ciudad, y = oct21, colour = "skyblue", group=1), linetype = "dashed") + 
+  labs(x = "Punto de Venta", y = "Venta Total") +
+  scale_color_manual(labels = c("Oct 2020", "Oct 2021"), values = c("pink3", "skyblue")) +
+  ggtitle("Comparativa entre Octubre 2020 y 2021")
+```
+## Comparativas diarias
+```{r}
+oct2020 <- read_excel("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI_dadati/10. OCTUBRE 20/LISTADO DE VENTAS OCTUBRE 20.xlsx")
+oct2021 <- read_excel("C:/Users/Beatriz Garcia/Desktop/DANYU/ECI/ECI_dadati/10. OCTUBRE 21/LISTADO DE VENTAS Octubre  2021.xlsx")
+colnames(oct2020) <- oct2020[1,] #give names to columns
+colnames(oct2020)[5] <- "Sevilla" # change name
+colnames(oct2021) <- oct2021[1,] 
+
+oct2020 <- oct2020[-1,] # remove first row (columns names)
+oct2021 <- oct2021[-1,]
+
+oct2020 <- oct2020[c("VTA ONLINE","DEV", "Sevilla")] # keep only useful info
+oct2020$`VTA ONLINE`<- as.numeric(oct2020$`VTA ONLINE`) # transform to numeric
+oct2020$DEV <- as.numeric(oct2020$DEV)
+oct2020$Sevilla <- as.numeric(oct2020$Sevilla)
+oct2020[is.na(oct2020)] <- 0 # na to 0
+oct2020 <- oct2020[1:31,] # sales from day 1 to 30 of sep
+
+oct2021 <- oct2021[c("VTA ONLINE 996", "DEVOLUCION", "TOTAL SEVILLA", "TOTAL MURCIA",
+                     "TOTAL GOYA", "TOTAL MALAGA", "TOTAL SALAMANCA", "TOTAL CÓRDOBA")] # keep useful columns
+#cols.num <- c("VTA ONLINE 996", "DEVOLUCION", "TOTAL SEVILLA", "TOTAL MURCIA",
+#              "TOTAL GOYA", "TOTAL MALAGA", "TOTAL SALAMANCA")
+oct2021[colnames(oct2021)] <- sapply(oct2021[colnames(oct2021)],as.numeric) # to numeric 
+# sapply(oct2021, class) # check class of columns
+oct2021[is.na(oct2021)] <- 0
+oct2021 <- oct2021[1:30,]
+
+
+# colSums(oct2020) # check results
+# colSums(oct2021)
+
+oct2020$total20 <- rowSums(oct2020)
+oct2021$total21 <- rowSums(oct2021)
+
+oct2020$dias <- seq(1,nrow(oct2020),1)
+oct2021$dias <- seq(1,nrow(oct2021),1)
+
+octCompara <- merge(oct2020, oct2021, by = "dias")
+octCompara$VentaOnline20 <- octCompara$`VTA ONLINE`+octCompara$DEV
+octCompara$VentaOnline21 <- octCompara$`VTA ONLINE 996`+octCompara$DEVOLUCION
+
+```
+
+
+```{r}
+ggplot(octCompara) +
+  geom_point(aes(x = dias, y = VentaOnline20, colour = "pink3", size =  `VTA ONLINE`)) + 
+  geom_point(aes(x = dias, y = VentaOnline21, colour = "skyblue", size = `VTA ONLINE 996`)) +
+  geom_line(aes(x=dias, y = VentaOnline20, colour = "pink3", group = 1), linetype = "dashed") + 
+  geom_line(aes(x=dias, y = VentaOnline21, colour = "skyblue", group = 1), linetype = "dashed") + 
+  labs(x = "Octubre 2020 y Octubre 2021", y = "Venta Online") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        plot.title = element_text(size=15)) +
+  scale_color_manual(labels = c("Oct 2020", "Oct 2021"), values = c("pink3", "skyblue")) +
+  ggtitle("Comparativa Ventas Online Octubre 20 y 21") 
+```
+
+```{r}
+ggplot(octCompara) +
+  geom_point(aes(x = dias, y = Sevilla, colour = "pink3", size =  Sevilla)) + 
+  geom_point(aes(x = dias, y = `TOTAL SEVILLA`, colour = "skyblue", size = `TOTAL SEVILLA`)) +
+  geom_line(aes(x=dias, y = Sevilla, colour = "pink3", group = 1), linetype = "dashed") + 
+  geom_line(aes(x=dias, y = `TOTAL SEVILLA`, colour = "skyblue", group = 1), linetype = "dashed") + 
+  labs(x = "Octubre 2020 y Octubre 2021", y = "Venta en Sevilla") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        plot.title = element_text(size=15)) +
+  scale_color_manual(labels = c("Oct 2020", "Oct 2021"), values = c("pink3", "skyblue")) +
+  ggtitle("Comparativa Sevilla Octubre 20 y 21")
+```
+
+```{r}
+ggplot(octCompara) +
+  geom_point(aes(x = dias, y = total20, colour = "pink3", size =  total20)) + 
+  geom_point(aes(x = dias, y = total21, colour = "skyblue", size = total21)) +
+  geom_line(aes(x=dias, y = total20, colour = "pink3", group = 1), linetype = "dashed") + 
+  geom_line(aes(x=dias, y = total21, colour = "skyblue", group = 1), linetype = "dashed") + 
+  labs(x = "Octubre 2020 y Octubre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        plot.title = element_text(size=15)) +
+  scale_color_manual(labels = c("Oct 2020", "Oct 2021"), values = c("pink3", "skyblue")) +
+  ggtitle("Comparativa Octubre 20 y 21")
+```
+
+
+
+
+
+

@@ -1,0 +1,526 @@
+---
+title: "Analysis de Ventas de Septiembre DADATI"
+author: "Danyu"
+date: "14/10/2021"
+output: word_document
+---
+
+```{r, warning=FALSE, echo=FALSE}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+#Data merging: combinar datos del mes septiembre. 
+df_monthly <- 
+  list.files(path="C:/Users/Beatriz Garcia/Desktop/DANYU/ECI/ECI_SEP/data_modified", full.names = TRUE) %>% 
+  lapply(read.csv2) %>% 
+  bind_rows 
+
+df_monthly$Precio = as.numeric(df_monthly$Precio)
+df_monthly$Fecha = str_sub(df_monthly$horaOperacion, -16,-7)
+df_monthly[df_monthly == 84203777] <- "Ana"
+df_monthly[df_monthly == 84385665] <- "Eva"
+df_monthly[df_monthly == 83576215] <- "Laura"
+df_monthly[df_monthly == 84402858] <- "Paqui"
+df_monthly[df_monthly == 84881754] <- "Ana2"
+df_monthly[df_monthly == 60605326] <- "Nati"
+df_monthly[df_monthly == 60609583] <- "Laura_Salamanca"
+```
+
+```{r, warning=FALSE, echo=FALSE}
+# eliminar corners con ventas negativas
+df_aux = df_monthly %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE))
+centers = df_aux[df_aux$ventaTotal>0,]$Punto.de.Venta.Centro
+```
+
+## Análisis de Compras y Devoluciones JUNTAS
+
+### Barplot de las ventas en funcion de los puntos de venta
+
+Hemos obtenido la mayor venta online. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE)) %>% 
+  ggplot(aes(as.factor(Punto.de.Venta.Centro), y = ventaTotal)) +
+  geom_bar(stat = "identity", fill = "pink") + 
+  labs(x = "Punto de Venta", y = "Venta Total") +
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=20, hjust=1)) 
+```
+
+### Box-plot de cada ticket vendidos en función de cada punto de venta en ECI
+
+Observamos que las medianas de cada centro no se difieren mucho, 45 euros por un producto vendido aproximadamente. pero los rangos de los centros de **Murcia**, **Nervion** son más amplios. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(-200,500) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=6)) +
+  ggtitle('Venta por ticket en funcion de Punto de Venta')
+```
+
+### Por centro: venta total y el mejor vendedor
+
+Esta tabla muestra, en la primera columna, puntos de ventas; la segunda columna, ventas totales del mes septiembre y la tercera columna, el mejor vendedor (con mas operaciones hechas incluidas las devoluciones). 
+Vemos que, **la mayoria de las ventas son online**. En Murcia hemos vendido una cantidad de aprox. 13300 euros mientras en Salamanca unos 2000 euros.  
+```{r, warning=FALSE, echo=FALSE}
+getmode <- function(v) {
+  uniqv <- na.omit(unique(v))
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+df2 <- df_monthly %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(ventaTotal = sum(Precio, na.rm = TRUE), bestSales = getmode(Vendedor))
+
+head(df2[order(df2$ventaTotal, decreasing = TRUE),],10)
+```
+
+### Por cada vendedor: Cantidad vendida (restando las devueltas) y dinero "ganado" 
+
+Con esta tabla obtenemos la informacion general de cada vendedor *sin tener en cuenta sus horarios, dias de trabajo*. Podemos observar que, los vendedores **84203777 (Ana) y 84385665 (Eva)** han vendido unas 220 y 148 cantidades correspondientes y con una precio total de 6744 y 4663 euros. El mejor "vendedor" es online. 
+```{r, warning=FALSE, echo=FALSE}
+df3 <- df_monthly %>% 
+  group_by(Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida, na.rm = TRUE), precioTotal = sum(Precio, na.rm = TRUE))
+
+head(df3[order(df3$Cantidades, decreasing = TRUE),],10)
+```
+
+### Tickets con Mayores Cantidades en Septiembre
+
+Vemos en la tabla **puntos de ventas**, **cantidad media vendida por ticket** y **precio medio por ticket** en orden descendente.  
+```{r, warning=FALSE, echo=FALSE}
+df4 <- df_monthly %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% 
+  summarise(Cantidades = sum(Vendida), precioTotal = sum(Precio))
+
+head(df4[order(df4$Cantidades, decreasing = TRUE),],10)
+```
+
+### Para cada centro, HORAS PUNTAS (la moda) 
+
+Las horas puntas son las modas de las operaciones hechas. Las podemos dividir en dos grupos, approx. durante el mediodia (12:00-13:00) y por la tarde (19:00-20:00)
+```{r, warning=FALSE, echo=FALSE}
+df_monthly$hora <- str_sub(df_monthly$horaOperacion, -5,-4)
+df_monthly$hora <- as.numeric(df_monthly$hora) 
+
+df_monthly <- df_monthly %>% 
+  filter(hora >= 0)
+
+df_monthly <- df_monthly[!is.na(df_monthly$hora),]
+
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro) %>% 
+  summarise(hora_punta = getmode(hora))
+```
+
+La tabla siguiente muestra mas detalles sobre las horas puntas (tabla de frecuencias para cada hora y centro). 
+```{r, warning=FALSE, echo=FALSE}
+centro_horas <- df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>%
+  group_by(Punto.de.Venta.Centro, hora) %>%
+  summarize(count=n())
+
+head(centro_horas,10)
+```
+En general, los clientes compran alrededor de las 20. 
+```{r, warning=FALSE, echo=FALSE}
+table(df_monthly$hora)
+```
+
+El grafico de densidad indica que, el 80% de las ventas online son hechas a las 20:00. Y en los corners de ECI, las horas puntas son, como concluida anteriormente, alrededor de las 12:30 y 19:30. 
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  ggplot(aes(x= hora, fill = Punto.de.Venta.Centro)) +
+  geom_density(alpha=0.4) +
+  xlim(6,23) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=7),
+        legend.title = element_text(size=7)) +
+  ggtitle('Hora Punta en funcion de Centro de Venta') # tambien incluye las devoluciones
+```
+
+### Dias puntas teniendo en cuenta las devoluciones
+
+Esta tabla muestra las ventas hechas en todos los dias en el mes de septiembre teniendo en cuenta las devoluciones. 
+```{r, warning=FALSE, echo=FALSE}
+compras_diaria <- df_monthly %>% group_by(Fecha) %>% summarise(Venta_diaria = sum(Precio))
+head(compras_diaria[order(compras_diaria$Venta_diaria, decreasing = TRUE),],10)
+```
+```{r}
+ggplot(compras_diaria) +
+  geom_line(aes(x = Fecha, y = Venta_diaria, colour = "pink", group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = Venta_diaria, colour = "pink", size = Venta_diaria)) +
+  labs(x = "Septiembre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+  ggtitle("Ventas de Septiembre 2021")
+```
+
+Esta tabla muestra las ventas de cada centro en cada dia.
+```{r, warning=FALSE, echo=FALSE}
+centro_venta<- df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro, Fecha) %>% 
+  summarise(Venta = sum(Precio, na.rm = TRUE))
+
+head(centro_venta,10)
+```
+```{r}
+centro_venta %>% ggplot() +
+  geom_line(aes(x = Fecha, y = Venta, colour = Punto.de.Venta.Centro, group =1), linetype = "dashed") + 
+  geom_point(aes(x = Fecha, y = Venta, colour = Punto.de.Venta.Centro, size = Venta)) +
+  labs(x = "Septiembre 2021", y = "Venta Total") +
+  theme(text = element_text(size=8),
+        axis.text.x = element_text(angle=35, hjust=1),
+        legend.position = "none",
+        plot.title = element_text(size=15)) +
+  ggtitle("Ventas de Septiembre 2021")+
+  facet_wrap(~Punto.de.Venta.Centro, nrow = 2)
+```
+
+### Analysis de EAN (productos mas vendidos) dependiendo de talla y coleccion (devoluciones restan)
+
+```{r, warning=FALSE, echo=FALSE}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/Listado de articulos")
+articulo <- read_excel("articulos (2) (2).xlsx", sheet = 1)
+```
+90 productos sin EAN. 
+```{r, warning=FALSE, echo=FALSE}
+colnames(articulo)[which(names(articulo)=="Cod.Barras")] <- "EAN"
+
+df_monthly_articulos <- df_monthly %>% merge(articulo, by= "EAN", all.x = TRUE)
+sum(is.na(df_monthly_articulos$`P.Nac. Recomendado`))
+```
+14 de los EANs sin detalles son operaciones hechas con EAN generica
+```{r, warning=FALSE, echo=FALSE}
+sum(df_monthly_articulos$EAN %in% 86531000197)
+```
+
+De la siguiente tabla podemos sacar los modelos mas vendidos dependiendo de la talla y coleccion. 
+Durante el septiembre, los productos mas vendidos son los siguientes: 
+Ignorando el EAN generico, (venta-devoluciones)
+```{r, warning=FALSE, echo=FALSE}
+df5 <- df_monthly_articulos %>% 
+  group_by(EAN) %>% 
+  summarise(vendidaMenosDevo = sum(Vendida, na.rm = TRUE))
+
+head(df5[order(df5$vendidaMenosDevo, decreasing = TRUE),],10)
+```
+**Precio esta mal. **
+```{r, warning=FALSE, echo=FALSE}
+# mejor vendido
+df_monthly_articulos[df_monthly_articulos$EAN == 8435155416246,]
+```
+Hemos 10 de este productos porque esta de rebajas. 29.99 en vez de 37.99.
+```{r, warning=FALSE, echo=FALSE}
+# segundo
+df_monthly_articulos[df_monthly_articulos$EAN == 8435155857681,]
+```
+Productos con mas operaciones hechas (las devoluciones tambien suman en este caso)
+```{r, warning=FALSE, echo=FALSE}
+head(sort(table(df_monthly$EAN), decreasing = TRUE),15)
+```
+
+### Gráficos de Densidad en función de cada Punto de Venta (2 plot con diferentes escalas)
+Las densidades de las compras muestran que, las tendencias de los corners son parecidas, el precio medio por ticket está entre unos 50 euros.
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) + 
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(-200, 600)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df_monthly %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) +
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(-100, 200)
+```
+
+
+## Analisis de las Compras 
+
+```{r, warning=FALSE, echo=FALSE}
+Compras_sep <- df_monthly_articulos %>% 
+  filter(Vendida>0)
+```
+
+### Mejor tickets de venta en el mes de septiembre y sus correspondientes vendedores. 
+Observamos que muchos de los mejores tickets son online, pero los vendedores 777 (Ana), 665 (Eva) tambien son buenas, por ejemplo. 
+```{r, warning=FALSE, echo=FALSE}
+df6 <- Compras_sep %>% 
+  group_by(Operacion, Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida, na.rm = TRUE), precioTotal = sum(Precio, na.rm = TRUE))
+
+head(df6[order(df6$Cantidades, decreasing = TRUE),],10)
+```
+La cantidad de tickets que han hecho nuestros vendedores. 
+```{r, warning=FALSE, echo=FALSE}
+Vendedores_Propios <- c("Ana", "Eva", "Laura", "Paqui", "Ana2", "Nati", "Laura_Salamanca")
+
+df_6_1 <- df6 %>% filter(Vendedor %in% Vendedores_Propios)
+table(df_6_1$Vendedor)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df7 <- df6 %>% 
+  group_by(Vendedor) %>% 
+  filter(Vendedor %in% Vendedores_Propios) %>% 
+  summarise(medioVendido = mean(Cantidades), mediaPrecio = mean(precioTotal))
+
+df7
+```
+### Vendedores propios y sus resultados en ventas
+
+La tabla muestra las cantidades totales vendidas de cada vendedor, la venta total en euros y cantidades vendidas proporcional a su horario. 
+```{r, warning=FALSE, echo=FALSE}
+df8 <- Compras_sep %>% 
+  group_by(Vendedor) %>% 
+  summarise(Cantidades = sum(Vendida), ventaTotal = sum(Precio))
+
+df9 <- df8 %>% filter(Vendedor %in% Vendedores_Propios)
+
+df9$vendido_a_horas = rep(0, nrow(df9))
+
+df9[df9$Vendedor == "Nati","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Nati"]/25*7/19
+df9[df9$Vendedor == "Laura_Salamanca","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Laura_Salamanca"]/21*7/4
+df9[df9$Vendedor == "Paqui","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Paqui"]/25*7/22
+df9[df9$Vendedor == "Eva","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Eva"]/25*7/26
+df9[df9$Vendedor == "Laura","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Laura"]/20*7/22
+df9[df9$Vendedor == "Ana","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Ana"]/30*7/26
+df9[df9$Vendedor == "Ana2","vendido_a_horas"] = df9$Cantidades[df9$Vendedor=="Ana2"]/25*7/20
+df9
+```
+### Dias puntas de ventas
+```{r, warning=FALSE, echo=FALSE}
+compras_diaria <- Compras_sep %>% group_by(Fecha) %>% summarise(Venta_diaria = sum(Precio))
+head(compras_diaria[order(compras_diaria$Venta_diaria, decreasing = TRUE),],10)
+```
+
+Ventas cada dia, cada centro sin tener en cuenta las devoluciones. 
+```{r, warning=FALSE, echo=FALSE}
+compras_centro_venta <- Compras_sep %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Punto.de.Venta.Centro, Fecha) %>% 
+  summarise(Venta = sum(Precio, na.rm = TRUE))
+
+head(compras_centro_venta,10)
+```
+
+### Ventas hachas por ticket en funcion de Punto de Venta (sin devoluciones)
+```{r, warning=FALSE, echo=FALSE}
+Compras_sep %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(0,500) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=6)) +
+  ggtitle('Venta por ticket en funcion de Punto de Venta')
+```
+
+Hora punta solamente teniendo en cuenta las ventas (sin devoluciones)
+```{r, warning=FALSE, echo=FALSE}
+Compras_sep %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  ggplot(aes(x= hora, fill = Punto.de.Venta.Centro)) +
+  geom_density(alpha=0.4) +
+  xlim(6,23) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=7),
+        legend.title = element_text(size=7)) +
+  ggtitle('Hora Punta en funcion de Centro de Venta') 
+```
+
+```{r, warning=FALSE, echo=FALSE}
+Compras_sep %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(horaOperacion, Punto.de.Venta.Centro) %>% 
+  summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) +
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(0, 600)
+```
+
+```{r}
+EAN_compras <- Compras_sep %>% 
+  group_by(EAN) %>% 
+  summarise(vendidas = sum(Vendida))
+
+head(EAN_compras[order(EAN_compras$vendidas, decreasing = TRUE),],10)
+```
+```{r}
+Compras_sep[Compras_sep$EAN == 8435155777118,]
+Compras_sep[Compras_sep$EAN == 8435155857681,]
+Compras_sep[Compras_sep$EAN == 8435155857698,]
+Compras_sep[Compras_sep$EAN == 8435155416246,]
+Compras_sep[Compras_sep$EAN == 8435155854918,]
+Compras_sep[Compras_sep$EAN == 8435155857674,]
+Compras_sep[Compras_sep$EAN == 8435155431348,]
+Compras_sep[Compras_sep$EAN == 8435155827080,]
+Compras_sep[Compras_sep$EAN == 8435155430563,]
+```
+
+## Devoluciones
+```{r, warning=FALSE, echo=FALSE}
+Devolu_sep <- df_monthly_articulos %>% 
+  filter(Vendida<0)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+df10 <- Devolu_sep %>% 
+  group_by(Vendedor) %>% 
+  summarise(cantidadesDevueltas = sum(Vendida, na.rm = TRUE), totalDevuelto = sum(Precio, na.rm = TRUE))
+
+df10 <- df10 %>% filter(Vendedor %in% Vendedores_Propios)
+
+df10
+```
+
+Proporcion 
+```{r, warning=FALSE, echo=FALSE}
+df_vendedores <- merge(df9, df10, by = "Vendedor")
+
+df_vendedores$cantidadesDevueltas <- abs(df_vendedores$cantidadesDevueltas)
+df_vendedores$total <- df_vendedores$Cantidades+df_vendedores$cantidadesDevueltas
+
+df_vendedores$propCompras <- df_vendedores$Cantidades/df_vendedores$total
+df_vendedores$propDevolu <- df_vendedores$cantidadesDevueltas/df_vendedores$total
+
+df_vendedores
+```
+```{r}
+# coste empresarial para los trabajadores en septiembre
+ANA <- 987.28+233+25.67+54.30+5.92+1.97
+ANA2 <- 865.08+204.16+22.49+57.96+5.19+1.73
+EVA <- 1012.58+238.97+26.34+55.69+6.07+2.02+1142.47
+LAURA <- 683.68+161.35+17.77+45.81+4.1+1.37
+LAURA_S <- 190.41+44.94+4.95+12.76+1.14+0.38
+NATI <- 640.54+151.17+16.66+42.92+3.84+1.28
+PAQUI <- 835.48+197.17+21.73+45.95+5.01+1.67
+
+nominas <- c(ANA, ANA2, EVA, LAURA, LAURA_S, NATI, PAQUI)
+df_vendedores$nomina <- nominas
+
+df_vendedores$ventaNomina <- df_vendedores$ventaTotal/df_vendedores$nomina
+df_vendedores$totalNomina <- (df_vendedores$ventaTotal+df_vendedores$totalDevuelto)/df_vendedores$nomina
+```
+
+### Devoluciones en cada dia
+```{r, warning=FALSE, echo=FALSE}
+dev_diaria <- Devolu_sep %>% group_by(Fecha) %>% summarise(Venta_diaria = sum(Precio))
+head(dev_diaria[order(dev_diaria$Venta_diaria),],10)
+```
+
+### Por operacion y por cada punto de venta, las cantidades de dinero en devolucion. 
+```{r, warning=FALSE, echo=FALSE}
+Devolu_sep %>% filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot + geom_boxplot(aes(y=cadaTicket, x=Punto.de.Venta.Centro, fill = Punto.de.Venta.Centro))+
+  ylim(-200,0) +
+  theme(legend.key.size = unit(0.3, 'cm'),
+        legend.key.width= unit(0.3, 'cm'),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=6)) +
+  ggtitle('Venta por ticket en funcion de Punto de Venta')
+```
+
+Graficas de densidades de dineros devueltos en cada ticket divididos en los puntos de venta
+```{r, warning=FALSE, echo=FALSE}
+Devolu_sep %>% 
+  filter(Punto.de.Venta.Centro %in% centers) %>% 
+  group_by(Operacion, Punto.de.Venta.Centro) %>% summarise(cadaTicket = sum(Precio)) %>% 
+  ggplot(aes(x=cadaTicket, fill=Punto.de.Venta.Centro)) + 
+  geom_density(alpha=0.3) +
+  theme(legend.position = "none") + 
+  facet_wrap(~Punto.de.Venta.Centro) + 
+  xlim(-500, 0)
+```
+
+### Productos mas devueltos
+```{r}
+EAN_devolus <- Devolu_sep %>% 
+  group_by(EAN) %>% 
+  summarise(vendidas = sum(Vendida))
+
+head(EAN_devolus[order(EAN_devolus$vendidas, decreasing = FALSE),],10)
+```
+
+```{r}
+Devolu_sep[Devolu_sep$EAN == 8435155777118,]
+Devolu_sep[Devolu_sep$EAN == 8435155856837,]
+Devolu_sep[Devolu_sep$EAN == 8435155857674,]
+Devolu_sep[Devolu_sep$EAN == 8435155777101,]
+Devolu_sep[Devolu_sep$EAN == 8435155854918,]
+Devolu_sep[Devolu_sep$EAN == 8435155856691,]
+Devolu_sep[Devolu_sep$EAN == 8435155776272,]
+Devolu_sep[Devolu_sep$EAN == 8435155782013,]
+Devolu_sep[Devolu_sep$EAN == 8435155855151,]
+Devolu_sep[Devolu_sep$EAN == 8435155855793,]
+```
+### weekdays analysis
+
+```{r}
+df_aux_week <- df_monthly_articulos %>% group_by(Fecha, Operacion) %>% summarise(count = n())
+ope_per_day <- df_aux_week %>% group_by(Fecha) %>% summarise(tickets=n())
+ope_per_day$weekday <- rep(seq(1,7,1),5)[3:32]
+
+weekday_sales <- ope_per_day %>% group_by(weekday) %>% summarise(weekday_total_tickets = sum(tickets))
+weekday_sales
+```
+
+```{r}
+weekday_sales$perday[weekday_sales$weekday==3 | weekday_sales$weekday==4] <- weekday_sales$weekday_total_tickets[weekday_sales$weekday==3 | weekday_sales$weekday==4]/5
+weekday_sales$perday[weekday_sales$weekday!=3 & weekday_sales$weekday!=4] <- weekday_sales$weekday_total_tickets[weekday_sales$weekday!=3 & weekday_sales$weekday!=4]/4
+weekday_sales
+```
+
+## PROMO/FULL PRICE
+
+```{r, warning=FALSE, echo=FALSE}
+df_monthly_articulos$precioUnidad <- df_monthly_articulos$Precio/df_monthly_articulos$Vendida
+df_monthly_articulos$descuento <- ((df_monthly_articulos$`P.Nac. Recomendado`)-(df_monthly_articulos$precioUnidad))/(df_monthly_articulos$`P.Nac. Recomendado`)
+```
+
+¿¿¿581 promociones negativas??? datos incorrectos
+
+```{r, warning=FALSE, echo=FALSE}
+sum(df_monthly_articulos$descuento<0, na.rm = TRUE)
+```
+
+
+```{r}
+sum(duplicated(articulo$EAN))
+```
+
+```{r}
+sum(is.na(articulo$EAN))
+```
+
