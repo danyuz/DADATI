@@ -1,0 +1,246 @@
+---
+title: "Mayorista"
+author: "Danyu"
+date: "5/11/2021"
+output: word_document
+---
+
+```{r}
+library(readxl)
+library(dplyr)
+```
+
+
+```{r}
+albaran <- read.csv("albaran.csv", header = FALSE)
+
+sergio1 <- read_excel("sergio.xlsx")
+sergio1 <- sergio1[!(is.na(sergio1$Cliente)),] %>% select(Cliente, `Canal Venta`)
+
+colnames(sergio1) <- c("cliente", "canal")
+
+cliente <- unique(sergio1$Cliente)
+canal <- rep("sergio", length(cliente))
+sergio <- data.frame(cliente, canal)
+
+
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/MAYORISTAS")
+clientes_tenerife <- read_excel(path = path.expand("tenerife.xlsx"))
+clientes_palmas <- read_excel("las palmas.xlsx")
+
+clientes_tenerife <- clientes_tenerife %>% rename(cliente = nombre) %>% 
+  select(cliente, provincia)
+clientes_palmas <- clientes_palmas %>% rename(cliente = nombre) %>% 
+  select(cliente, provincia)
+```
+
+```{r}
+df <- Filter(function(x)(length(unique(x))>1), albaran)
+
+# codigo mercancia es UNICA PARA MERCANCIA DE TODAS LAS TALLAS
+colnames(df) <- c("cliente", "fecha", "cod.ticket", "cod.mercancia", "talla", "descripcion",
+                  "descuento", "cantidad", "importe", "iva", "recargo", "unidad_total", 
+                  "importe_total", "iva_total", "recargo_total", "total_pagado")
+
+# change format price
+df$importe <- gsub("\\.", "", df$importe)
+df$importe <- gsub(",",".",df$importe)
+df$importe <- as.numeric(df$importe)
+
+# fecha de dias 
+df$fecha1 <- str_sub(df$fecha, 1, 10)
+
+# left join
+df <- merge(df, clientes_tenerife, by = "cliente", all.x = TRUE)
+df <- merge(df, clientes_palmas, by = "cliente", all.x = TRUE)
+```
+
+Separar los distintos canales (VENTAS PARTICULARES Y VENTAS MAYORISTAS)
+```{r}
+zalando <- df %>% filter(str_detect(cliente, "WILSON"))
+ECI <- df %>% filter(str_detect(cliente, "CORTE INGLES"))
+venta_particular <- df %>% filter(str_detect(cliente, "TIANYUAN"))
+ajuste_stock <- df %>% filter(str_detect(cliente, "DADATI"))
+
+mayorista <- df %>% filter(!str_detect(cliente, "WILSON|CORTE INGLES|TIANYUAN|DADATI"))
+```
+
+Separar DENTRO DE MAYORISTAS: DISTRIBUIDORES, FRANQUICIA Y MAYORISTAS
+```{r}
+aux_mayorista <- c(unique(filter(mayorista, str_detect(cliente, "DECOGLOBAL"))$cliente), unique(filter(mayorista, str_detect(cliente, "OSCAR"))$cliente), unique(filter(mayorista, str_detect(cliente, "DELFIN"))$cliente))
+
+mayorista_tabla1 <- mayorista %>% mutate(cliente = replace(cliente, !str_detect(cliente, "DECOGLOBAL|OSCAR|DELFIN"), "Mayorista_General"))
+
+df1 <- mayorista_tabla1 %>% group_by(cliente) %>% 
+  summarise(vental_total_por_canal = sum(importe), unidades_total_por_canal = sum(cantidad))
+
+total <- sum(df1$vental_total_por_canal)
+
+df1$Porcentaje_por_canal <- df1$vental_total_por_canal/total
+
+df1
+```
+
+Analisis MAYORISTA GENERAL
+```{r}
+# importe y cantidad por cada cliente de mayorista general
+mayorista_general <- mayorista %>% filter(!str_detect(cliente, "DECOGLOBAL|OSCAR|DELFIN"))
+
+df2 <- mayorista_general %>% group_by(cliente) %>% 
+  summarise(total_Por_Cliente = sum(importe), total_Unidad_Cliente = sum(cantidad))
+
+total1 <- sum(df2$total_Por_Cliente)
+
+df2$porcentaje_porVenta <- round(df2$total_Por_Cliente/total,2)
+
+df2 <- df2[order(df2$total_Por_Cliente, decreasing = TRUE),]
+df2
+```
+
+```{r}
+## comparacion mayorista con otros canales
+#aux <- c(unique(zalando$cliente), unique(ECI$cliente), unique(venta_particular$cliente), #unique(ajuste_stock$cliente))
+#
+#a <- df[!(df$cliente %in% aux),]
+#a$cliente <- rep("mayorista", nrow(a))
+#
+#b <- rbind(a, zalando, ECI, venta_particular, ajuste_stock)
+#b <- b %>% group_by(cliente) %>% summarise(totalPorCanal = sum(importe), totalUnidadporCanal = #sum(cantidad)) 
+## cordoba 14826, muestrario
+#
+#totalb <- sum(b$totalPorCanal)
+#b$totalPorCanal <- as.integer(b$totalPorCanal)
+#
+#b$porcentaje_porVenta <- round(b$totalPorCanal/totalb,2)
+#
+#b <- b[order(b$totalPorCanal, decreasing = TRUE),]
+#b
+```
+
+
+todos los mayoristas por cliente y fecha, ventas en orden descendente
+```{r}
+# por cliente y fecha
+df3 <- mayorista %>% group_by(cliente, fecha1) %>% summarise(cantidad_porFecha_y_cliente= sum(cantidad),
+                                                             total_porFecha_y_cliente=sum(importe))
+
+df3 <- df3[order(df3$total_porFecha_y_cliente, decreasing = TRUE),]
+df3
+```
+
+```{r}
+mayorista_general$iva_total <- gsub("\\.", "", mayorista_general$iva_total)
+mayorista_general$iva_total <- gsub(",",".",mayorista_general$iva_total)
+mayorista_general$iva_total <- as.numeric(mayorista_general$iva_total)
+
+
+# nacional
+tenerife <- mayorista_general %>% filter(str_detect(provincia.x, "TENERIFE"))
+palmas <- mayorista_general %>% filter(str_detect(provincia.y, "PALMAS"))
+
+nacional <- mayorista_general %>% filter(iva_total!=0)
+nacional <- rbind(nacional, tenerife, palmas)
+df4 <- nacional %>% group_by(cliente) %>% summarise(total_por_Cliente_nacional = sum(importe), 
+                                                    total_cantidad_Cliente_nacional = sum(cantidad))
+
+
+total_nacional <- sum(df4$total_por_Cliente_nacional)
+
+df4$porcentaje<- df4$total_por_Cliente_nacional/total_nacional
+
+df4 <- df4[order(df4$total_por_Cliente_nacional, decreasing = TRUE),]
+df4
+```
+
+```{r}
+# internacional
+internacional <- mayorista_general %>% group_by(cliente, provincia.x, provincia.y) %>% 
+  summarise(IVA = sum(iva_total),
+            total_por_Cliente_Internacional = sum(importe), 
+            total_Cantidad_Cliente_Internacional = sum(cantidad)) %>% filter(IVA==0) 
+
+df5 <- internacional[is.na(internacional$provincia.x) & is.na(internacional$provincia.x),]
+df5 <- df5[c("cliente","total_por_Cliente_Internacional", "total_Cantidad_Cliente_Internacional")]
+
+total_internacional <- sum(df5$total_por_Cliente_Internacional)
+
+df5$porcentaje<- df5$total_por_Cliente_Internacional/total
+
+df5 <- df5[order(df5$total_por_Cliente_Internacional, decreasing = TRUE),]
+df5
+```
+
+```{r}
+totalNacional <- sum(df4$total_por_Cliente_nacional)
+totalIntern <- sum(df5$total_por_Cliente_Internacional)
+
+
+nacional_porcentaje = totalNacional/(totalNacional+totalIntern)
+internacional_porcentaje = totalIntern/(totalNacional+totalIntern)
+
+totalNacional
+totalIntern
+nacional_porcentaje
+internacional_porcentaje
+```
+
+
+Por representantes
+```{r}
+cliente <- c("VESTIMOS MOMENTS, S.L.", "TRASTADAS ESPJ", "ALEJANDRA NOEMI MARTINEZ LUGO",
+             "PASCUALA BELEN BELLON MARTINEZ", "PAULA VARGA SARABIA", 
+             "PALOMA GRANERO TORREGROSA", "MARI CARMEN SAMPER FRUCTUOSO", 
+             "DOLORES MORENO HERNANDEZ")
+canal<- rep("Juancarlos", length(cliente))
+juancarlos <- data.frame(cliente, canal)
+
+
+cliente <- c("AVELINA RON GARCIA", "ERNESTINA PEREZ GARCIA", "FIRST FROKY S.L.L", 
+              "LAURA CANCELO DE LAS HERAS", "M ANTONIA DOMINGUEZ PRIETO", 
+              "MARIA DOLORES CASTILLO LAGO", "MARIA SAN MIGUEL GÃ“MEZ", 
+              "MARIA SARAY CORTEGUERA MARTINEZ", "MERCHANOR S.L.", "PAULA FERNANDEZ GONZALEZ", 
+              "ROCIO VAZQUEZ JIMENEZ", "SANDRA RODRIGUEZ RODRIGUEZ", "SANDRA SANZ DAZA")
+canal<- rep("Israel", length(cliente))
+israel <- data.frame(cliente, canal)
+
+
+cliente <- c("ANA IRENE SANCHEZ GARCIA", "GLORIA DEL VALLE GUTIERREZ", "ISABEL MORENO RAMIREZ", 
+              "JOSEFA MARTINEZ GARCIA (BEBES JOSE)", "MÂª NIEVES RUIZ ROMERO", "MOMBAY C.B.",
+              "VERONICA MORENO COMUÑAS", "YOLANDA ROMERO RODRIGUEZ")
+
+canal<- rep("Marco", length(cliente))
+marco <- data.frame(cliente, canal)
+
+
+representantes <- rbind(sergio, juancarlos, israel, marco) 
+```
+
+
+
+
+```{r}
+nacional <- nacional %>% merge(representantes, by = "cliente", all.x = TRUE) 
+
+canales <- nacional %>% group_by(canal) %>% summarise(total_por_canal = sum(importe), total_unidad_por_canal = sum(cantidad))
+
+total_canal <- sum(canales$total_por_canal)
+
+canales$porcentaje <- canales$total_por_canal/total_canal
+
+canales
+```
+
+```{r}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/MAYORISTAS/OCT/ficheros resumen")
+write_xlsx(df1, "mayorista_por_Cliente.xlsx")
+write_xlsx(b, "total_por_Canal.xlsx")
+write_xlsx(c, "mayorista_por_Fecha_Cliente.xlsx")
+write_xlsx(d, "mayorista_internacional_por_cliente.xlsx")
+write_xlsx(e, "mayorista_nacional_por_cliente.xlsx")
+```
+
+
+
+
+
+
