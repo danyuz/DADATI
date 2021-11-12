@@ -1,0 +1,265 @@
+---
+title: "Ventas 2021"
+author: "Danyu"
+date: "10/11/2021"
+output: word_document
+---
+
+```{r}
+library(readxl)
+library(dplyr)
+library(stringr)
+```
+
+```{r}
+albaran21 <- read.csv("albaran2021hastaOCT.csv", header = FALSE)
+albaran20 <- read.csv("albaran2020.csv", header = FALSE)
+albaran19 <- read.csv("albaran2019.csv", header = FALSE)
+```
+
+```{r}
+df <- rbind(albaran21, albaran20, albaran19)
+
+df <- Filter(function(x)(length(unique(x))>1), df)
+df <- df[-1]
+# codigo mercancia es UNICA PARA MERCANCIA DE TODAS LAS TALLAS
+colnames(df) <- c("cliente", "fecha", "cod.ticket", "cod.mercancia", "talla", "descripcion",
+                  "descuento", "cantidad", "importe", "iva", "recargo", "unidad_total", 
+                  "importe_total", "iva_total", "recargo_total", "total_pagado")
+
+df <- df[1:16]
+# change format price
+df$importe <- gsub("\\.", "", df$importe)
+df$importe <- gsub(",",".",df$importe)
+df$importe <- as.numeric(df$importe)
+df$iva <- gsub("\\.", "", df$iva)
+df$iva <- gsub(",",".",df$iva)
+df$iva <- as.numeric(df$iva)
+df$recargo <- gsub("\\.", "", df$recargo)
+df$recargo <- gsub(",",".",df$recargo)
+df$recargo <- as.numeric(df$recargo)
+
+
+df$pagado <- df$importe+ df$iva +df$recargo
+
+# fecha de dias 
+df$fecha1 <- str_sub(df$fecha, 1, 10)
+df$mes <- str_sub(df$fecha, 4,5)
+df$anio <- str_sub(df$fecha, 7,10)
+```
+
+Separar los distintos canales (VENTAS PARTICULARES Y VENTAS MAYORISTAS)
+```{r}
+venta_particular <- df %>% filter(str_detect(cliente, "TIANYUAN"))%>% 
+  group_by(anio, mes) %>% summarise(total = sum(pagado))
+
+privee <- df %>% filter(str_detect(cliente, "PRIVEE")) %>% 
+  group_by(anio, mes) %>% summarise(total = sum(pagado))
+
+ESPA <- df %>% filter(str_detect(cliente, "ESPA INTER")) %>% 
+  group_by(anio, mes) %>% summarise(total = sum(pagado))
+
+mayorista <- df %>% filter(!str_detect(cliente, "WILSON|CORTE INGLES|TIANYUAN|DADATI|PRIVEE|ESPA")) %>% 
+  group_by(anio, mes) %>% summarise(total = sum(pagado))
+```
+
+
+```{r}
+mes <- seq(1,12,1)
+mes <- sprintf("%02d", mes)
+```
+
+
+```{r}
+df21 <- data.frame(mes[1:11])
+df21 <- left_join(venta_particular[venta_particular$anio==2021,],
+                  mayorista[mayorista$anio==2021,], by = c("mes","anio")) %>% 
+  left_join(privee[privee$anio==2021,], by = c("mes","anio")) %>% 
+  left_join(ESPA[ESPA$anio==2021,], by = c("mes","anio"))
+
+
+ECI_online <- c(29086.65, 22557.76, 25260.06, 47114.12, 42179.10,22071.68,
+                35485.38, 16068.21, 25316.93, 28095.78)
+ECI_total <- c(40386.44, 30645.19, 46403.42, 81886.45, 81468.60, 55959.97,
+               78674.90, 37846.18, 62880.10, 110371.4)
+ECI_online <- 0.7*ECI_online
+ECI_total <- 0.7*ECI_total
+
+ECI_corner <- data.frame(mes[1:10], ECI_total-ECI_online)
+ECI_online <- data.frame(mes[1:10], ECI_online)
+colnames(ECI_corner) <- c("mes","total")
+colnames(ECI_online) <- c("mes","total")
+
+df21 <- left_join(df21, ECI_corner, by="mes") %>% 
+  left_join(ECI_online, by = "mes")
+
+df21$zalando <- c(0,0,0,165.96, 24092.54, 54829.83, 54030.77, 17746.97, -6732.21,344.92,0)
+
+colnames(df21) <- c("anio","MES","venta_particular", "mayorista", "privee", "ESPA", "ECI_CORNER", "ECI_ONLINE", "ZALANDO")
+df21 <- data.frame(df21)
+
+df21[is.na(df21)] <- 0
+# df21 <- df21[-1]
+
+df21$mensual <- as.numeric(rowSums(df21[-(1:2)]))
+
+df21[12, ] = c(2021, 12, rep(0, ncol(df21)-2))
+df21[13, ] = c(0, 0, colSums(df21[-(1:2)]))
+
+df21$mensual <- as.numeric(df21$mensual)
+df21$porcentaje_mes <- round(df21$mensual/df21[13,10],4)
+
+df21[14, ] = c("porcentaje","de canal", round(df21[13,-(1:2)]/df21[13,10],4))
+df21
+```
+
+
+```{r}
+df20 <- data.frame(mes)
+df20 <- left_join(venta_particular[venta_particular$anio==2020,],
+                  mayorista[mayorista$anio==2020,], by = c("mes","anio")) %>% 
+  left_join(privee[privee$anio==2020,], by = c("mes","anio")) %>% 
+  left_join(ESPA[ESPA$anio==2020,], by = c("mes","anio"))
+
+#eciNervion20 <- c(5109.59, 5638.75, 818.91, 0, 2966.84, 13947.7, 
+#                  12673.11, 4399.15, 7193.34, 12144.12, 8750.79, 12598.74)
+eciOnline20 <- c(71372.7, 26995.86, 19468.09, 22907.33, 103613.22, 3778.51,
+                 34840.42,12054.07,6763.33, 31122.04, 15510.56, 23537.26)
+eci2020 <- c(80364.7, 32717.09, 20338.77, 22907.33, 106580.06, 17726.21, 
+             47531.92, 16453.22, 13956.67, 43266.16, 27307.78, 47540.24)
+eciCorner20 <- eci2020-eciOnline20
+
+df20$ECI_CORNER <- eciCorner20*0.7
+df20$ECI_ONLINE <- eciOnline20*0.7
+df20$ZALANDO <- rep(0, nrow(df20))
+
+colnames(df20) <- c("anio","MES","venta_particular", "mayorista", "privee", "ESPA", "ECI_CORNER", "ECI_ONLINE", "ZALANDO")
+df20 <- data.frame(df20)
+df20[is.na(df20)] <- 0
+
+df20$mensual <- as.numeric(rowSums(df20[-(1:2)]))
+df20[13, ] = c(0,0,colSums(df20[-(1:2)]))
+
+df20$mensual <- as.numeric(df20$mensual)
+df20$porcentaje_mes <- round(df20$mensual/df20[13,10],4)
+
+df20[14, ] = c("porcentaje","de canal", round(df20[13,-(1:2)]/df20[13,10],4))
+df20
+```
+
+```{r}
+df19 <- data.frame(mes)
+df19 <- left_join(venta_particular[venta_particular$anio==2019,],
+                  mayorista[mayorista$anio==2019,], by = c("mes","anio")) %>% 
+  left_join(privee[privee$anio==2019,], by = c("mes","anio")) %>% 
+  left_join(ESPA[ESPA$anio==2019,], by = c("mes","anio"))
+
+eciOnline19 <- c(42991.06, 18372.80, 23932.75, 16989.3, 9031.55, 9955.29, 10171.07, 4559.58, 8398.63, 19022.93, 18476.65, 25628.95)
+eci2019 <- c(42991.06, 18372.80, 23932.75, 16989.3, 9031.55, 9955.29, 10171.07, 9100.42,
+             25526.17, 40091.92, 33356.55, 32485.18)
+
+df19$ECI_CORNER <- (eci2019-eciOnline19)*0.7
+df19$ECI_ONLINE <- eciOnline19*0.7
+df19$ZALANDO <- rep(0, nrow(df19))
+
+colnames(df19) <- c("anio","MES","venta_particular", "mayorista", "privee", "ESPA", "ECI_CORNER", "ECI_ONLINE", "ZALANDO")
+
+
+df19 <- data.frame(df19)
+df19[is.na(df19)] <- 0
+df19[7,4]<- df19[7,4]-174783.93
+
+df19$mensual <- as.numeric(rowSums(df19[-(1:2)]))
+df19[13, ] = c(0,0,colSums(df19[-(1:2)]))
+
+df19$mensual <- as.numeric(df19$mensual)
+df19$porcentaje_mes <- round(df19$mensual/df19[13,10],4)
+
+
+df19[14, ] = c("porcentaje","de canal", round(df19[13,-(1:2)]/df19[13,10],4))
+
+```
+
+```{r}
+df192021 <- rbind(df19[(1:12),(1:9)], df20[(1:12),(1:9)], df21[(1:12),(1:9)])
+
+df192021[37, ] = c(0,0,colSums(df192021[-(1:2)]))
+total192021 <- sum(as.numeric(df192021[37,]))
+df192021[38, ] = c(as.numeric(df192021[37, ])/total192021)
+```
+
+
+```{r}
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/Analisis global/datos de ventas")
+write.csv2(df19, "ventas2019.csv",row.names = FALSE)
+write.csv2(df20, "venats2020.csv",row.names = FALSE)
+write.csv2(df21, "ventas2021.csv",row.names = FALSE)
+write.csv2(df192021, "ventas192021.csv",row.names = FALSE)
+```
+
+
+
+
+### SEGUNDA PARTE: MAYORISTAS
+```{r}
+mayorista <- df %>% filter(!str_detect(cliente, "WILSON|CORTE INGLES|TIANYUAN|DADATI|PRIVEE|ESPA"))
+
+df1 <- mayorista %>% mutate(cliente = replace(cliente, !str_detect(cliente, "DECOGLOBAL|OSCAR|DELFIN|SIGASCORES"), "Mayorista_General"))
+
+df1 <- df1 %>% group_by(cliente, anio) %>% 
+  summarise(vental_total_por_canal = sum(pagado), unidades_total_por_canal = sum(cantidad))
+
+df1
+```
+```{r}
+mayorista_general <- mayorista %>% filter(!str_detect(cliente, "DECOGLOBAL|OSCAR|DELFIN|SIGASCORES"))
+
+mayorista_general$iva_total <- gsub("\\.", "", mayorista_general$iva_total)
+mayorista_general$iva_total <- gsub(",",".",mayorista_general$iva_total)
+mayorista_general$iva_total <- as.numeric(mayorista_general$iva_total)
+
+
+setwd("C:/Users/Beatriz Garcia/Desktop/DANYU/MAYORISTAS")
+clientes_tenerife <- read_excel(path = path.expand("tenerife.xlsx"))
+clientes_palmas <- read_excel("las palmas.xlsx")
+
+clientes_tenerife <- clientes_tenerife %>% rename(cliente = nombre) %>% 
+  select(cliente, provincia)
+clientes_palmas <- clientes_palmas %>% rename(cliente = nombre) %>% 
+  select(cliente, provincia)
+```
+
+
+```{r}
+# nacional
+
+# left join
+mayorista_general <- merge(mayorista_general, clientes_tenerife, by = "cliente", all.x = TRUE)
+mayorista_general <- merge(mayorista_general, clientes_palmas, by = "cliente", all.x = TRUE)
+
+tenerife <- mayorista_general %>% filter(str_detect(provincia.x, "TENERIFE"))
+palmas <- mayorista_general %>% filter(str_detect(provincia.y, "PALMAS"))
+
+nacional <- mayorista_general %>% filter(iva_total!=0)
+nacional <- rbind(nacional, tenerife, palmas)
+df4 <- nacional %>% group_by(anio) %>% summarise(total_por_Cliente_nacional = sum(pagado), 
+                                                    total_cantidad_Cliente_nacional = sum(cantidad))
+
+# internacional
+
+internacional <- mayorista_general %>% group_by(anio, cliente, provincia.x, provincia.y) %>% 
+  summarise(IVA = sum(iva_total),
+            total_por_Cliente_Internacional = sum(pagado), 
+            total_Cantidad_Cliente_Internacional = sum(cantidad)) %>% filter(IVA==0) 
+
+df5 <- internacional[is.na(internacional$provincia.x),]
+df5 <- df5[is.na(df5$provincia.y),]
+
+df5 <- df5[c("anio","cliente","total_por_Cliente_Internacional", "total_Cantidad_Cliente_Internacional")]
+
+df5 %>% group_by(anio) %>% summarise(total = sum(total_por_Cliente_Internacional))
+```
+
+
+
+
